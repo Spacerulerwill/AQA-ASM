@@ -639,7 +639,7 @@ fn run_program(memory: &mut [u8; 256]) -> Result<(), Box<dyn Error>>{
                 println!("{}", val);
             },
             // Input
-            instrution if instruction == BinaryOpcode::Inputm as u8 => {
+            instruction if instruction == BinaryOpcode::Inputm as u8 => {
                 idx += 1;
                 let memory_address: usize =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
                 loop {            
@@ -660,7 +660,7 @@ fn run_program(memory: &mut [u8; 256]) -> Result<(), Box<dyn Error>>{
                     }
                 }
             }
-            instrution if instruction == BinaryOpcode::Inputr as u8 => {
+            instruction if instruction == BinaryOpcode::Inputr as u8 => {
                 idx += 1;
                 let register_idx: usize =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
                 loop {            
