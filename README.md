@@ -24,3 +24,5 @@ git clone https://github.com/Spacerulerwill/AQA-ASM
 cd AQA-ASM
 cargo run <filename>
 ```
+# Contributions
+This code is horrid and I hate it. Pull requests are welcome, I am quite new to rust.
