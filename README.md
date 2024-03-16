@@ -13,7 +13,7 @@ A simple assembly simulator for the weird AQA A level instruction set. The simul
 | `B <label>` | Branch to the label specified by `<label>` |
 | `B<condition> <label>` | Branch to the label specified by `<label>` if the last comparison met the critereon specified by `<condition`>. Condition can be one of: `EQ` (equal too), `NEQ` (not equal too), `GT` (greater than), `LT` (less than) |
 | `AND Rd Rn <operand>` | Perform a bitwise AND between the value in register n and the value specified by `<operand>` and store in register `n` |
-| `OR Rd Rn <operand>` | Perform a bitwise OR between the value in register n and the value specified by `<operand>` and store in register `n` |
+| `ORR Rd Rn <operand>` | Perform a bitwise OR between the value in register n and the value specified by `<operand>` and store in register `n` |
 | `EOR Rd Rn <operand>` | Perform a bitwise XOR between the value in register n and the value specified by `<operand>` and store in register `n` |
 | `MVN Rd <operand>` | Perform a bitwise NOT on the value specified by `<operand>` and store in register `n` |
 | `LSL Rd Rn <operand>` | Perform a bitwise left shift on the value in register n by the number of bits specified by `<operand>` and store in register `d` |
