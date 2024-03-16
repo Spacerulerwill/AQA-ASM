@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::{env, fs};
+use std::{env, fs, io};
 use std::str::FromStr;
 use maplit::hashmap;
 use std::error::Error;
@@ -34,6 +34,7 @@ enum AssemblyOpcode {
     Lsr,
     Halt,
     Print,
+    Input,
 }
 
 impl FromStr for AssemblyOpcode {
@@ -59,6 +60,7 @@ impl FromStr for AssemblyOpcode {
             "LSR" => Ok(AssemblyOpcode::Lsr),
             "HALT" => Ok(AssemblyOpcode::Halt),   
             "PRINT" => Ok(AssemblyOpcode::Print),
+            "INPUT" => Ok(AssemblyOpcode::Input),
             _      => Err(()),
         }
     }
@@ -111,6 +113,8 @@ enum BinaryOpcode {
     Halt,
     Printr,
     Printm,
+    Inputr,
+    Inputm,
 }
 
 // return potential formats for an instruction from its assembly opcode
@@ -140,16 +144,16 @@ fn get_opcode_operand_formats(opcode: AssemblyOpcode) -> HashMap<BinaryOpcode, V
         AssemblyOpcode::Bgt => hashmap! {BinaryOpcode::Bgt => vec![Operand::Label]},
         AssemblyOpcode::Blt => hashmap! {BinaryOpcode::Blt => vec![Operand::Label]},
         AssemblyOpcode::And => hashmap! {
-            BinaryOpcode::Andr => vec![Operand::Register, Operand::Register],
-            BinaryOpcode::Andl => vec![Operand::Register, Operand::Literal],
+            BinaryOpcode::Andr => vec![Operand::Register, Operand::Register, Operand::Register],
+            BinaryOpcode::Andl => vec![Operand::Register, Operand::Register, Operand::Literal],
         },
         AssemblyOpcode::Orr => hashmap! {
-            BinaryOpcode::Orrr => vec![Operand::Register, Operand::Register],
-            BinaryOpcode::Orrl => vec![Operand::Register, Operand::Literal],
+            BinaryOpcode::Orrr => vec![Operand::Register, Operand::Register, Operand::Register],
+            BinaryOpcode::Orrl => vec![Operand::Register, Operand::Register, Operand::Literal],
         },
         AssemblyOpcode::Eor => hashmap! {
-            BinaryOpcode::Eorr => vec![Operand::Register, Operand::Register],
-            BinaryOpcode::Eorl => vec![Operand::Register, Operand::Literal],
+            BinaryOpcode::Eorr => vec![Operand::Register, Operand::Register, Operand::Register],
+            BinaryOpcode::Eorl => vec![Operand::Register, Operand::Register, Operand::Literal],
         },
         AssemblyOpcode::Mvn => hashmap! [
             BinaryOpcode::Mvnr => vec![Operand::Register, Operand::Register],
@@ -166,6 +170,10 @@ fn get_opcode_operand_formats(opcode: AssemblyOpcode) -> HashMap<BinaryOpcode, V
         AssemblyOpcode::Print => hashmap! {
             BinaryOpcode::Printr => vec![Operand::Register],
             BinaryOpcode::Printm => vec![Operand::MemoryRef],
+        },
+        AssemblyOpcode::Input => hashmap! {
+            BinaryOpcode::Inputr => vec![Operand::Register],
+            BinaryOpcode::Inputm => vec![Operand::MemoryRef],
         },
         AssemblyOpcode::Halt => hashmap!{
             BinaryOpcode::Halt => vec![]
@@ -626,10 +634,53 @@ fn run_program(memory: &mut [u8; 256]) -> Result<(), Box<dyn Error>>{
             },
             instruction if instruction == BinaryOpcode::Printr as u8 => {
                 idx += 1;
-                let register_num =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let register_num: usize =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
                 let val = registers[register_num];
                 println!("{}", val);
             },
+            // Input
+            instrution if instruction == BinaryOpcode::Inputm as u8 => {
+                idx += 1;
+                let memory_address: usize =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                loop {            
+                    let mut input = String::new();
+                    io::stdin()
+                        .read_line(&mut input)
+                        .expect("Failed to read line");
+                    let number: Result<u8, _> = input.trim().parse();
+            
+                    match number {
+                        Ok(num) => {
+                            memory[memory_address] = num;
+                            break;
+                        }
+                        Err(_) => {
+                            continue; 
+                        }
+                    }
+                }
+            }
+            instrution if instruction == BinaryOpcode::Inputr as u8 => {
+                idx += 1;
+                let register_idx: usize =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                loop {            
+                    let mut input = String::new();
+                    io::stdin()
+                        .read_line(&mut input)
+                        .expect("Failed to read line");
+                    let number: Result<u8, _> = input.trim().parse();
+            
+                    match number {
+                        Ok(num) => {
+                            registers[register_idx] = num;
+                            break;
+                        }
+                        Err(_) => {
+                            continue; 
+                        }
+                    }
+                }
+            }
             // Comparison
             instruction if instruction == BinaryOpcode::Cmpr as u8 => {
                 idx += 1;

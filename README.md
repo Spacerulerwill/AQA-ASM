@@ -24,6 +24,7 @@ I have added extra instructions to make the program a bit less useless
 | Instruction | Description |
 | ----------- | ----------- |
 | `PRINT Rd \| <memory ref>` | Print the numerical of value of the value stored at the register `d` or at the memory address specified by `<memory ref>` |
+| `INPUT Rd \| <memory ref>` | Take a numerical input and store it in the register `d` or at the memory address specified by `<memory ref>` |
 # Using
 ```
 git clone https://github.com/Spacerulerwill/AQA-ASM
