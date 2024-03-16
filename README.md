@@ -1,7 +1,8 @@
 # AQA-ASM
 A simple assembly simulator for the weird AQA A level instruction set. The simulation itself is 8 bit and the instructions all work with 8 bit unsigned integers. You are provided with 13 general purpose 8 bit registers labelled R0-R12 and 256 bytes of memory to load your instructions and store variables. Memory addresses start at zero, but bear in mind you will need to account for the space required by your instructions.
-# Instruction Set
-`<operand>` - either a register (Rn) or a literal value (#n)
+# Core Instruction Set
+`<operand>` - either a register (Rn) or a literal value (#n)    
+`Rd | <memory ref>` - either a register (Rn) or a memory address (n)
 | Instruction | Description |
 | ----------- | ----------- |
 | `LDR Rd <memory ref>`  | Load the value in the memory location `<memory ref>` into register `d` |
@@ -18,6 +19,11 @@ A simple assembly simulator for the weird AQA A level instruction set. The simul
 | `LSL Rd Rn <operand>` | Perform a bitwise left shift on the value in register n by the number of bits specified by `<operand>` and store in register `d` |
 | `LSR Rd Rn <operand>` | Perform a bitwise right shift on the value in register n by the number of bits specified by `<operand>` and store in register `d` |
 | `HALT` | Terminate the program |
+# Extra instructions
+I have added extra instructions to make the program a bit less useless
+| Instruction | Description |
+| ----------- | ----------- |
+| `PRINT Rd \| <memory ref>` | Print the numerical of value of the value stored at the register `d` or at the memory address specified by `<memory ref>` |
 # Using
 ```
 git clone https://github.com/Spacerulerwill/AQA-ASM
