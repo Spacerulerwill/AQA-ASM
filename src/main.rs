@@ -443,205 +443,154 @@ fn run_program(memory: &mut [u8; 256]) -> Result<(), Box<dyn Error>>{
     let mut comparison_result = 0;
     let mut underflow = false;
 
+    fn read_memory_address(idx: &mut usize, memory: &mut [u8; 256]) -> Result<u8, Box<dyn Error>> {
+        let val = memory.get(*idx).ok_or("Program read past end of available memory")?;
+        *idx += 1;
+        Ok(*val)
+    }
+
     loop {
-        let instruction = *memory.get(idx).ok_or("Program read past end of available memory")? as u8;
+        let instruction = read_memory_address(&mut idx, memory)?;
 
         match instruction {
             // Load
             instruction if instruction == BinaryOpcode::Ldr as u8 => {
-                idx += 1;
-                let register_num = *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let memory_address = *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                registers[register_num] = memory[memory_address];
+                let register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let memory_address = read_memory_address(&mut idx, memory)? as usize;
+                registers[register_idx] = memory[memory_address];
             },
             // Store
             instruction if instruction == BinaryOpcode::Str as u8 => {
-                idx += 1;
-                let register_num =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let memory_address =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                memory[memory_address] = registers[register_num];
+                let register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let memory_address = read_memory_address(&mut idx, memory)? as usize;
+                memory[memory_address] = registers[register_idx];
             },
             // Addition
             instruction if instruction == BinaryOpcode::Addr as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let second_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let second_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
                 registers[store_register_idx] = registers[first_operand_register_idx].wrapping_add(registers[second_operand_register_idx]);
             }
             instruction if instruction == BinaryOpcode::Addl as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let literal = memory[idx];
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let literal = read_memory_address(&mut idx, memory)?;
                 registers[store_register_idx] = registers[first_operand_register_idx].wrapping_add(literal);
             }
             // Subtraction
             instruction if instruction == BinaryOpcode::Subr as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let second_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let second_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
                 registers[store_register_idx] = registers[first_operand_register_idx].wrapping_sub(registers[second_operand_register_idx]);
             }
             instruction if instruction == BinaryOpcode::Subl as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let literal = memory[idx];
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let literal = read_memory_address(&mut idx, memory)?;
                 registers[store_register_idx] = registers[first_operand_register_idx].wrapping_sub(literal);
             }
             // Move
             instruction if instruction == BinaryOpcode::Movr as u8 => {
-                idx += 1;
-                let register_num =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let second_register_num =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                registers[register_num] = registers[second_register_num];
+                let register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let second_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                registers[register_idx] = registers[second_register_idx];
             },
             instruction if instruction == BinaryOpcode::Movl as u8 => {
-                idx += 1;
-                let register_num =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let literal = memory[idx];
-                registers[register_num] = literal;
+                let register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let literal = read_memory_address(&mut idx, memory)?;
+                registers[register_idx] = literal;
             },
             // Bitwise AND
             instruction if instruction == BinaryOpcode::Andr as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let second_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let second_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
                 registers[store_register_idx] = registers[first_operand_register_idx] & registers[second_operand_register_idx];
             }
             instruction if instruction == BinaryOpcode::Andl as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let literal = memory[idx];
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let literal = read_memory_address(&mut idx, memory)?;
                 registers[store_register_idx] = registers[first_operand_register_idx] & literal;
             }
             // Bitwise OR
             instruction if instruction == BinaryOpcode::Orrr as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let second_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let second_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
                 registers[store_register_idx] = registers[first_operand_register_idx] | registers[second_operand_register_idx];
             }
             instruction if instruction == BinaryOpcode::Orrl as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let literal = memory[idx];
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let literal = read_memory_address(&mut idx, memory)?;
                 registers[store_register_idx] = registers[first_operand_register_idx] | literal;
             }
             // Bitwise XOR
             instruction if instruction == BinaryOpcode::Eorr as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let second_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let second_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
                 registers[store_register_idx] = registers[first_operand_register_idx] ^ registers[second_operand_register_idx];
             }
             instruction if instruction == BinaryOpcode::Eorl as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let literal = memory[idx];
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let literal = read_memory_address(&mut idx, memory)?;
                 registers[store_register_idx] = registers[first_operand_register_idx] ^ literal;
             }
             // Bitwise NOT
             instruction if instruction == BinaryOpcode::Mvnr as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
                 registers[store_register_idx] = !registers[operand_register_idx];
             }
             instruction if instruction == BinaryOpcode::Mvnl as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let literal = memory[idx];
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let literal = read_memory_address(&mut idx, memory)?;
                 registers[store_register_idx] = !literal;
             }
             // Left shift
             instruction if instruction == BinaryOpcode::Lslr as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let second_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let second_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
                 registers[store_register_idx] = registers[first_operand_register_idx].wrapping_shl(registers[second_operand_register_idx] as u32);
             }
             instruction if instruction == BinaryOpcode::Lsll as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let literal = memory[idx];
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let literal = read_memory_address(&mut idx, memory)?;
                 registers[store_register_idx] = registers[first_operand_register_idx].wrapping_shl(literal as u32);
             }
             // Right shift
             instruction if instruction == BinaryOpcode::Lsrr as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let second_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let second_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
                 registers[store_register_idx] = registers[first_operand_register_idx].wrapping_shr(registers[second_operand_register_idx] as u32);
             }
             instruction if instruction == BinaryOpcode::Lsrl as u8 => {
-                idx += 1;
-                let store_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let first_operand_register_idx =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let literal = memory[idx];
+                let store_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let first_operand_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let literal = read_memory_address(&mut idx, memory)?;
                 registers[store_register_idx] = registers[first_operand_register_idx].wrapping_shr(literal as u32);
             }
             // Print
             instruction if instruction == BinaryOpcode::Printm as u8 => {
-                idx += 1;
-                let val = memory[idx];
+                let val = read_memory_address(&mut idx, memory)?;
                 println!("{}", val);
             },
             instruction if instruction == BinaryOpcode::Printr as u8 => {
-                idx += 1;
-                let register_num: usize =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                let val = registers[register_num];
+                let register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let val = registers[register_idx];
                 println!("{}", val);
             },
             // Input
             instruction if instruction == BinaryOpcode::Inputm as u8 => {
-                idx += 1;
-                let memory_address: usize =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let memory_address = read_memory_address(&mut idx, memory)? as usize;
                 loop {            
                     let mut input = String::new();
                     io::stdin()
@@ -661,8 +610,7 @@ fn run_program(memory: &mut [u8; 256]) -> Result<(), Box<dyn Error>>{
                 }
             }
             instruction if instruction == BinaryOpcode::Inputr as u8 => {
-                idx += 1;
-                let register_idx: usize =  *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let register_idx = read_memory_address(&mut idx, memory)? as usize;
                 loop {            
                     let mut input = String::new();
                     io::stdin()
@@ -683,62 +631,61 @@ fn run_program(memory: &mut [u8; 256]) -> Result<(), Box<dyn Error>>{
             }
             // Comparison
             instruction if instruction == BinaryOpcode::Cmpr as u8 => {
-                idx += 1;
-                let first_register_idx = *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let second_register_idx = *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let first_register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let second_register_idx = read_memory_address(&mut idx, memory)? as usize;
                 underflow = registers[second_register_idx] > registers[first_register_idx];
                 comparison_result = registers[first_register_idx].wrapping_sub(registers[second_register_idx]);
             },
             instruction if instruction == BinaryOpcode::Cmpl as u8 => {
-                idx += 1;
-                let register_idx = *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
-                idx += 1;
-                let literal = *memory.get(idx).ok_or("Program read past end of available memory")?;
+                let register_idx = read_memory_address(&mut idx, memory)? as usize;
+                let literal = read_memory_address(&mut idx, memory)?;
                 underflow = literal > registers[register_idx];
                 comparison_result = registers[register_idx].wrapping_sub(literal);
             },
             // Branch
             instruction if instruction == BinaryOpcode::B as u8 => {
-                idx += 1;
-                let idx_to_branch_too = *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                let idx_to_branch_too = read_memory_address(&mut idx, memory)? as usize;
                 idx = idx_to_branch_too;
                 continue;
             }
             // Branch equal
             instruction if instruction == BinaryOpcode::Beq as u8 => {
-                idx += 1;
                 if comparison_result == 0 {
                     let idx_to_branch_too = *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
                     idx = idx_to_branch_too;
                     continue;
+                } else {
+                    idx += 1;
                 }
             }
             // Branch not equal
             instruction if instruction == BinaryOpcode::Bne as u8 => {
-                idx += 1;
                 if comparison_result != 0  {
-                    let idx_to_branch_too = *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                    let idx_to_branch_too = read_memory_address(&mut idx, memory)? as usize;
                     idx = idx_to_branch_too;
                     continue;
+                }else {
+                    idx += 1;
                 }
             }
             // Branch greater
             instruction if instruction == BinaryOpcode::Bgt as u8 => {
-                idx += 1;
                 if comparison_result != 0 && !underflow {
-                    let idx_to_branch_too = *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                    let idx_to_branch_too = read_memory_address(&mut idx, memory)? as usize;
                     idx = idx_to_branch_too;
                     continue;
+                } else {
+                    idx += 1;
                 }
             }
             // Branch less
             instruction if instruction == BinaryOpcode::Blt as u8 => {
-                idx += 1;
                 if underflow {
-                    let idx_to_branch_too = *memory.get(idx).ok_or("Program read past end of available memory")? as usize;
+                    let idx_to_branch_too = read_memory_address(&mut idx, memory)? as usize;
                     idx = idx_to_branch_too;
                     continue;
+                } else {
+                    idx += 1;
                 }
             }
             // Halt
@@ -747,7 +694,6 @@ fn run_program(memory: &mut [u8; 256]) -> Result<(), Box<dyn Error>>{
             },
             _ => {}
         }
-        idx += 1;
     }
     return Ok(())
 }
