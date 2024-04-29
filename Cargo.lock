@@ -6,11 +6,25 @@ version = 3
 name = "aqa-asm"
 version = "0.1.0"
 dependencies = [
- "maplit",
+ "inline_colorization",
+ "strsim",
+ "unicode-width",
 ]
 
 [[package]]
-name = "maplit"
-version = "1.0.2"
+name = "inline_colorization"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
+checksum = "dc1804bdb6a9784758b200007273a8b84e2b0b0b97a8f1e18e763eceb3e9f98a"
+
+[[package]]
+name = "strsim"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "unicode-width"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e51733f11c9c4f72aa0c160008246859e340b00807569a0da0e7a1079b27ba85"
