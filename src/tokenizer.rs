@@ -271,6 +271,16 @@ pub enum TokenType {
     EOF,
 }
 
+impl Token {
+    pub fn get_token_debug_repr(&self) -> String {
+        match &self.ty {
+            TokenType::Newline => String::from("'newline'"),
+            TokenType::EOF => String::from("'end of file'"),
+            _ => format!("'{}'", &self.lexeme)
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub ty: TokenType,

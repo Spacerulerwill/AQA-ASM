@@ -66,25 +66,25 @@ fn main() {
         Err(err) => {
             match err {
                 ParserError::ExpectedLineDelimeter { got } => bad_print!(
-                    "Syntax Error :: Line {}, Col {} :: Expected line delimeter (semicolon or newline), found token '{}'",
+                    "Syntax Error :: Line {}, Col {} :: Expected line delimeter (semicolon or newline), found token {}",
                     got.line,
                     got.col,
-                    &got.lexeme,
+                    &got.get_token_debug_repr(),
                 ),
                 ParserError::ExpectedOpcode { got } => bad_print!(
-                    "Syntax Error :: Line {}, Col {} :: Expected instruction opcode, found token '{}'",
+                    "Syntax Error :: Line {}, Col {} :: Expected instruction opcode, found token {}",
                     got.line,
                     got.col,
-                    &got.lexeme,
+                    &got.get_token_debug_repr(),
                 ),
                 ParserError::ExpectedOperand { expected, got } => {
                     assert!(expected.len() > 0);
                     if expected.len() == 1 {
                         bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: Unexpected operand '{}', expected {:?}",
+                            "Syntax Error :: Line {}, Col {} :: Unexpected token {}, expected {:?}",
                             got.line,
                             got.col,
-                            &got.lexeme,
+                            &got.get_token_debug_repr(),
                             expected.get(0).unwrap()
                         )
                     } else {
@@ -94,20 +94,20 @@ fn main() {
                             .collect::<Vec<_>>()
                             .join("\n");
                         bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: Unexpected operand '{}', expected one of the following:\n{}",
+                            "Syntax Error :: Line {}, Col {} :: Unexpected token {}, expected one of the following:\n{}",
                             got.line,
                             got.col,
-                            &got.lexeme,
+                            &got.get_token_debug_repr(),
                             &result
                         )
                     }
                 },
                 ParserError::UnexpectedToken { expected, got } => bad_print!(
-                    "Syntax Error :: Line {}, Col {} :: Expected {:?}, found '{}'",
+                    "Syntax Error :: Line {}, Col {} :: Expected {:?}, found {}",
                     got.line,
                     got.col,
                     expected,
-                    &got.lexeme,
+                    &got.get_token_debug_repr(),
                 ),
                 ParserError::InvalidLabel { token } => {
                     let mut most_similar_label = &token.lexeme;
@@ -122,18 +122,18 @@ fn main() {
 
                     if max_similarity > 0.5 {
                         bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: No label exists with name: '{}', did you mean '{}'?",
+                            "Syntax Error :: Line {}, Col {} :: No label exists with name: {}, did you mean '{}'?",
                             token.line,
                             token.col,
-                            &token.lexeme,
+                            &token.get_token_debug_repr(),
                             most_similar_label
                         )
                     } else {
                         bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: No label exists with name: '{}'",
+                            "Syntax Error :: Line {}, Col {} :: No label exists with name: {}",
                             token.line,
                             token.col,
-                            &token.lexeme
+                            &token.get_token_debug_repr()
                         )
                     }
             },
