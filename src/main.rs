@@ -7,8 +7,8 @@ use interpreter::{interpret, RuntimeError};
 use parser::{parse, ParserError};
 use std::{env, fs};
 use strsim::normalized_damerau_levenshtein;
-use tokenizer::tokenize;
-
+use tokenizer::{tokenize, Operand};
+use std::collections::HashSet;
 /// prints bold and green
 macro_rules! good_print {
     ($($arg:tt)*) => {
@@ -79,7 +79,8 @@ fn main() {
                 ),
                 ParserError::ExpectedOperand { expected, got } => {
                     assert!(expected.len() > 0);
-                    if expected.len() == 1 {
+                    let unique_expected: HashSet<Operand> =   HashSet::from_iter(expected.iter().cloned());
+                    if unique_expected.len() == 1 {
                         bad_print!(
                             "Syntax Error :: Line {}, Col {} :: Unexpected token {}, expected {:?}",
                             got.line,
@@ -88,7 +89,7 @@ fn main() {
                             expected.get(0).unwrap()
                         )
                     } else {
-                        let result = expected
+                        let result = unique_expected
                             .iter()
                             .map(|s| format!("\t• {:?}", s))
                             .collect::<Vec<_>>()
