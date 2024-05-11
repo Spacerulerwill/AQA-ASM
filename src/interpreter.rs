@@ -1,6 +1,5 @@
 use crate::tokenizer::BinaryOpcode;
 use std::io;
-use std::mem::transmute;
 
 // We get a predefined amount of registers allocated
 pub const REGISTER_COUNT: u8 = 13;
@@ -18,7 +17,14 @@ pub fn interpret(memory: &mut [u8; 256], program_bytes: usize) -> Result<(), Run
     let mut comparison_result = 0;
     let mut underflow = false;
 
-    fn read_next_memory_address(idx: &mut usize, memory: &[u8; 256]) -> Result<u8, RuntimeError> {
+    fn read_next_memory_address(
+        idx: &mut usize,
+        memory: &[u8; 256],
+        program_bytes: usize,
+    ) -> Result<u8, RuntimeError> {
+        if *idx >= program_bytes {
+            return Err(RuntimeError::ReadPastMemory);
+        }
         match memory.get(*idx) {
             Some(val) => {
                 *idx += 1;
@@ -68,81 +74,101 @@ pub fn interpret(memory: &mut [u8; 256], program_bytes: usize) -> Result<(), Run
     }
 
     loop {
-        let instruction = read_next_memory_address(&mut idx, &memory)?;
-        // This is safe, as there are measures in place to stop the user from overwriting program memory
-        let opcode: BinaryOpcode = unsafe { transmute(instruction as i8) };
+        let instruction = read_next_memory_address(&mut idx, &memory, program_bytes)?;
+
+        let opcode: BinaryOpcode = match instruction.try_into() {
+            Ok(opcode) => opcode,
+            Err(_) => panic!(
+                "Invalid opcode found while running program, please report as bug to author!"
+            ),
+        };
+
         match opcode {
             BinaryOpcode::NOP => {}
             BinaryOpcode::LDR => {
-                let register = read_next_memory_address(&mut idx, memory)? as usize;
-                let memory_ref = read_next_memory_address(&mut idx, memory)? as usize;
+                let register = read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
+                let memory_ref =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 registers[register] = read_memory_address(memory_ref, program_bytes, memory)?;
             }
             BinaryOpcode::STR => {
-                let register = read_next_memory_address(&mut idx, memory)? as usize;
-                let memory_ref = read_next_memory_address(&mut idx, memory)? as usize;
+                let register = read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
+                let memory_ref =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 write_memory_address(registers[register], memory_ref, program_bytes, memory)?;
             }
             BinaryOpcode::ADD_REGISTER => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 let register_operand_2 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 registers[register_store] = register_operand_1.wrapping_add(register_operand_2);
             }
             BinaryOpcode::ADD_LITERAL => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
-                let literal_operand_2 = read_next_memory_address(&mut idx, memory)?;
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
+                let literal_operand_2 = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 registers[register_store] = register_operand_1.wrapping_add(literal_operand_2);
             }
             BinaryOpcode::SUB_REGISTER => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 let register_operand_2 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 registers[register_store] = register_operand_1.wrapping_sub(register_operand_2);
             }
             BinaryOpcode::SUB_LITERAL => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
-                let literal_operand_2 = read_next_memory_address(&mut idx, memory)?;
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
+                let literal_operand_2 = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 registers[register_store] = register_operand_1.wrapping_sub(literal_operand_2);
             }
             BinaryOpcode::MOV_REGISTER => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
-                let register_operand = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
+                let register_operand =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 registers[register_store] = registers[register_operand];
             }
             BinaryOpcode::MOV_LITERAL => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
-                let literal_operand = read_next_memory_address(&mut idx, memory)?;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
+                let literal_operand = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 registers[register_store] = literal_operand;
             }
             BinaryOpcode::CMP_REGISTER => {
-                let register_operand_1 = read_next_memory_address(&mut idx, memory)? as usize;
-                let register_operand_2 = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_operand_1 =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
+                let register_operand_2 =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 underflow = registers[register_operand_2] > registers[register_operand_1];
                 comparison_result =
                     registers[register_operand_1].wrapping_sub(registers[register_operand_2]);
             }
             BinaryOpcode::CMP_LITERAL => {
-                let register_idx = read_next_memory_address(&mut idx, memory)? as usize;
-                let literal = read_next_memory_address(&mut idx, memory)?;
+                let register_idx =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
+                let literal = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 underflow = literal > registers[register_idx];
                 comparison_result = registers[register_idx].wrapping_sub(literal);
             }
             BinaryOpcode::B => {
-                let idx_to_branch_too = read_next_memory_address(&mut idx, memory)? as usize;
+                let idx_to_branch_too =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 idx = idx_to_branch_too;
             }
             BinaryOpcode::BEQ => {
                 if comparison_result == 0 {
-                    let idx_to_branch_too = read_next_memory_address(&mut idx, memory)? as usize;
+                    let idx_to_branch_too =
+                        read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                     idx = idx_to_branch_too;
                 } else {
                     idx += 1;
@@ -151,7 +177,7 @@ pub fn interpret(memory: &mut [u8; 256], program_bytes: usize) -> Result<(), Run
             BinaryOpcode::BNE => {
                 if comparison_result != 0 {
                     let idx_to_branch_too: usize =
-                        read_next_memory_address(&mut idx, memory)? as usize;
+                        read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                     idx = idx_to_branch_too;
                 } else {
                     idx += 1;
@@ -159,7 +185,8 @@ pub fn interpret(memory: &mut [u8; 256], program_bytes: usize) -> Result<(), Run
             }
             BinaryOpcode::BGT => {
                 if comparison_result != 0 && !underflow {
-                    let idx_to_branch_too = read_next_memory_address(&mut idx, memory)? as usize;
+                    let idx_to_branch_too =
+                        read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                     idx = idx_to_branch_too;
                 } else {
                     idx += 1;
@@ -167,119 +194,132 @@ pub fn interpret(memory: &mut [u8; 256], program_bytes: usize) -> Result<(), Run
             }
             BinaryOpcode::BLT => {
                 if underflow {
-                    let idx_to_branch_too = read_next_memory_address(&mut idx, memory)? as usize;
+                    let idx_to_branch_too =
+                        read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                     idx = idx_to_branch_too;
                 } else {
                     idx += 1;
                 }
             }
             BinaryOpcode::AND_REGISTER => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 let register_operand_2 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 registers[register_store] = register_operand_1 & register_operand_2;
             }
             BinaryOpcode::AND_LITERAL => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
-                let literal = read_next_memory_address(&mut idx, memory)?;
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
+                let literal = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 registers[register_store] = register_operand_1 & literal;
             }
             BinaryOpcode::ORR_REGISTER => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 let register_operand_2 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 registers[register_store] = register_operand_1 | register_operand_2;
             }
             BinaryOpcode::ORR_LITERAL => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
-                let literal = read_next_memory_address(&mut idx, memory)?;
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
+                let literal = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 registers[register_store] = register_operand_1 | literal;
             }
             BinaryOpcode::EOR_REGISTER => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 let register_operand_2 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 registers[register_store] = register_operand_1 ^ register_operand_2;
             }
             BinaryOpcode::EOR_LITERAL => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
-                let literal = read_next_memory_address(&mut idx, memory)?;
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
+                let literal = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 registers[register_store] = register_operand_1 ^ literal;
             }
             BinaryOpcode::MVN_REGISTER => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 registers[register_store] = !register_operand;
             }
             BinaryOpcode::MVN_LITERAL => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
-                let literal = read_next_memory_address(&mut idx, memory)?;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
+                let literal = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 registers[register_store] = !literal;
             }
             BinaryOpcode::LSL_REGISTER => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 let register_operand_2 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 registers[register_store] =
                     register_operand_1.wrapping_shl(register_operand_2 as u32);
             }
             BinaryOpcode::LSL_LITERAL => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
-                let literal_operand_2 = read_next_memory_address(&mut idx, memory)?;
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
+                let literal_operand_2 = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 registers[register_store] =
                     register_operand_1.wrapping_shl(literal_operand_2 as u32);
             }
             BinaryOpcode::LSR_REGISTER => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 let register_operand_2 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
                 registers[register_store] =
                     register_operand_1.wrapping_shr(register_operand_2 as u32);
             }
             BinaryOpcode::LSR_LITERAL => {
-                let register_store = read_next_memory_address(&mut idx, memory)? as usize;
+                let register_store =
+                    read_next_memory_address(&mut idx, memory, program_bytes)? as usize;
                 let register_operand_1 =
-                    registers[read_next_memory_address(&mut idx, memory)? as usize];
-                let literal_operand_2 = read_next_memory_address(&mut idx, memory)?;
+                    registers[read_next_memory_address(&mut idx, memory, program_bytes)? as usize];
+                let literal_operand_2 = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 registers[register_store] =
                     register_operand_1.wrapping_shr(literal_operand_2 as u32);
             }
             BinaryOpcode::PRINT_REGISTER => {
-                let register = read_next_memory_address(&mut idx, &memory)?;
+                let register = read_next_memory_address(&mut idx, &memory, program_bytes)?;
                 println!("{}", registers[register as usize])
             }
             BinaryOpcode::PRINT_MEMORY => {
-                let memory_ref = read_next_memory_address(&mut idx, &memory)?;
+                let memory_ref = read_next_memory_address(&mut idx, &memory, program_bytes)?;
                 println!(
                     "{}",
                     read_memory_address(memory_ref as usize, program_bytes, memory)?
                 );
             }
             BinaryOpcode::INPUT_REGISTER => {
-                let register = read_next_memory_address(&mut idx, memory)?;
+                let register = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 registers[register as usize] = read_u8();
             }
             BinaryOpcode::INPUT_MEMORY => {
-                let memory_ref = read_next_memory_address(&mut idx, memory)?;
+                let memory_ref = read_next_memory_address(&mut idx, memory, program_bytes)?;
                 write_memory_address(read_u8(), memory_ref as usize, program_bytes, memory)?;
             }
             BinaryOpcode::HALT => break,

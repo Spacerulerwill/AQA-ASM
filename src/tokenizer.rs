@@ -260,6 +260,49 @@ pub enum BinaryOpcode {
     HALT,
 }
 
+impl TryFrom<u8> for BinaryOpcode {
+    type Error = ();
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        match v {
+            x if x == BinaryOpcode::NOP as u8 => Ok(BinaryOpcode::NOP),
+            x if x == BinaryOpcode::LDR as u8 => Ok(BinaryOpcode::LDR),
+            x if x == BinaryOpcode::STR as u8 => Ok(BinaryOpcode::STR),
+            x if x == BinaryOpcode::ADD_REGISTER as u8 => Ok(BinaryOpcode::ADD_REGISTER),
+            x if x == BinaryOpcode::ADD_LITERAL as u8 => Ok(BinaryOpcode::ADD_LITERAL),
+            x if x == BinaryOpcode::SUB_REGISTER as u8 => Ok(BinaryOpcode::SUB_REGISTER),
+            x if x == BinaryOpcode::SUB_LITERAL as u8 => Ok(BinaryOpcode::SUB_LITERAL),
+            x if x == BinaryOpcode::MOV_REGISTER as u8 => Ok(BinaryOpcode::MOV_REGISTER),
+            x if x == BinaryOpcode::MOV_LITERAL as u8 => Ok(BinaryOpcode::MOV_LITERAL),
+            x if x == BinaryOpcode::CMP_REGISTER as u8 => Ok(BinaryOpcode::CMP_REGISTER),
+            x if x == BinaryOpcode::CMP_LITERAL as u8 => Ok(BinaryOpcode::CMP_LITERAL),
+            x if x == BinaryOpcode::B as u8 => Ok(BinaryOpcode::B),
+            x if x == BinaryOpcode::BEQ as u8 => Ok(BinaryOpcode::BEQ),
+            x if x == BinaryOpcode::BNE as u8 => Ok(BinaryOpcode::BNE),
+            x if x == BinaryOpcode::BGT as u8 => Ok(BinaryOpcode::BGT),
+            x if x == BinaryOpcode::BLT as u8 => Ok(BinaryOpcode::BLT),
+            x if x == BinaryOpcode::AND_REGISTER as u8 => Ok(BinaryOpcode::AND_REGISTER),
+            x if x == BinaryOpcode::AND_LITERAL as u8 => Ok(BinaryOpcode::AND_LITERAL),
+            x if x == BinaryOpcode::ORR_REGISTER as u8 => Ok(BinaryOpcode::ORR_REGISTER),
+            x if x == BinaryOpcode::ORR_LITERAL as u8 => Ok(BinaryOpcode::ORR_LITERAL),
+            x if x == BinaryOpcode::EOR_REGISTER as u8 => Ok(BinaryOpcode::EOR_REGISTER),
+            x if x == BinaryOpcode::EOR_LITERAL as u8 => Ok(BinaryOpcode::EOR_LITERAL),
+            x if x == BinaryOpcode::MVN_REGISTER as u8 => Ok(BinaryOpcode::MVN_REGISTER),
+            x if x == BinaryOpcode::MVN_LITERAL as u8 => Ok(BinaryOpcode::MVN_LITERAL),
+            x if x == BinaryOpcode::LSL_REGISTER as u8 => Ok(BinaryOpcode::LSL_REGISTER),
+            x if x == BinaryOpcode::LSL_LITERAL as u8 => Ok(BinaryOpcode::LSL_LITERAL),
+            x if x == BinaryOpcode::LSR_REGISTER as u8 => Ok(BinaryOpcode::LSR_REGISTER),
+            x if x == BinaryOpcode::LSR_LITERAL as u8 => Ok(BinaryOpcode::LSR_LITERAL),
+            x if x == BinaryOpcode::PRINT_REGISTER as u8 => Ok(BinaryOpcode::PRINT_REGISTER),
+            x if x == BinaryOpcode::PRINT_MEMORY as u8 => Ok(BinaryOpcode::PRINT_MEMORY),
+            x if x == BinaryOpcode::INPUT_REGISTER as u8 => Ok(BinaryOpcode::INPUT_REGISTER),
+            x if x == BinaryOpcode::INPUT_MEMORY as u8 => Ok(BinaryOpcode::INPUT_MEMORY),
+            x if x == BinaryOpcode::HALT as u8 => Ok(BinaryOpcode::HALT),
+            _ => Err(()),
+        }
+    }
+}
+
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
@@ -276,7 +319,7 @@ impl Token {
         match &self.ty {
             TokenType::Newline => String::from("'newline'"),
             TokenType::EOF => String::from("'end of file'"),
-            _ => format!("'{}'", &self.lexeme)
+            _ => format!("'{}'", &self.lexeme),
         }
     }
 }

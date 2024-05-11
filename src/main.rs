@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod interpreter;
 mod parser;
 mod tokenizer;
@@ -5,10 +7,11 @@ mod tokenizer;
 use inline_colorization::{color_green, color_red, color_reset, style_bold, style_reset};
 use interpreter::{interpret, RuntimeError};
 use parser::{parse, ParserError};
+use std::collections::HashSet;
 use std::{env, fs};
 use strsim::normalized_damerau_levenshtein;
 use tokenizer::{tokenize, Operand};
-use std::collections::HashSet;
+
 /// prints bold and green
 macro_rules! good_print {
     ($($arg:tt)*) => {
