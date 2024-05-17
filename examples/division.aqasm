@@ -1,0 +1,32 @@
+INPUT R1
+INPUT R2
+CMP R2, #0
+BEQ exit
+MOV R0, #0
+MOV R3, #1
+moveleft:
+LSL R2, R2, #1
+LSL R3, R3, #1
+CMP R2, R1
+BLT moveleft
+BEQ mainloop
+LSR R2, R2, #1
+LSR R3, R3, #1
+mainloop:
+CMP R1, R2
+BLT skip
+ADD R0, R0, R3
+SUB R1, R1, R2
+skip:
+AND R4, R3, #1
+CMP R4, #1
+BEQ skipshift
+LSR R2, R2, #1
+skipshift:
+LSR R3, R3, #1
+CMP R3, #0
+BNE mainloop
+exit: 
+PRINT R0
+PRINT R1
+HALT;
