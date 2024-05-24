@@ -1,3 +1,7 @@
+/*
+Program to compute the result of integer division between 2 integers,
+outputting the quotient and remainder
+*/
 INPUT R1
 INPUT R2
 CMP R2, #0

@@ -1,3 +1,8 @@
+/*
+Program to output integers 0-254 inclusive.
+It is not able to print 255 due to the lack of a 
+less than or equal too instruction
+*/
 body:
 PRINT R0
 ADD R0, R0, #1

@@ -1,3 +1,4 @@
+// Program to the calculate the hamming weight (number of 1 bits) of a number
 INPUT R0
 loop:
 MOV R3, R0

@@ -1,3 +1,4 @@
+// Program to compute the subtraction of two integers
 INPUT R0
 INPUT R1
 SUB R2, R0, R1

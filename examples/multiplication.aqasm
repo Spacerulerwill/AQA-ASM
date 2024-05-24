@@ -1,3 +1,4 @@
+// Program to perform binary multiplication of 2 integers
 INPUT R0
 INPUT R1
 MOV R3, #0

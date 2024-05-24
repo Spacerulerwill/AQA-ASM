@@ -1,3 +1,4 @@
+// Compute the sum of two 8 bit integers
 INPUT R0
 INPUT R1
 ADD R2, R1, R0

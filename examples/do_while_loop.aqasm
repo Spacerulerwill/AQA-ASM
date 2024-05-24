@@ -1,5 +1,12 @@
+/*
+Program that will repeatedly ask the user for input until they
+guess the secret number (69). The program will then output how
+many attempts it took the user to guess.
+*/
 loop_body:
+ADD R1, R1, #1
 INPUT R0
 CMP R0, #69
 BNE loop_body
+PRINT R1
 HALT;

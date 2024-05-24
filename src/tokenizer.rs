@@ -354,6 +354,7 @@ impl<'a> TokenizerState<'a> {
         }
     }
 
+    /// Consume character
     fn next(&mut self) {
         if let Some(ch) = self.iter.next() {
             match ch {
@@ -364,6 +365,17 @@ impl<'a> TokenizerState<'a> {
                 _ => {
                     self.col += UnicodeWidthChar::width(ch).unwrap_or(0);
                 }
+            }
+        }
+    }
+
+    /// Consumer characters until we hit delimeter
+    fn next_until(&mut self, delimeter: char) {
+        while let Some(&ch) = self.iter.peek() {
+            if ch == delimeter {
+                break;
+            } else {
+                self.iter.next();
             }
         }
     }
@@ -415,7 +427,7 @@ pub fn tokenize(
     input: &String,
 ) -> Result<(Vec<Token>, HashMap<String, LabelDefinition>, usize), TokenizerError> {
     let mut state = TokenizerState::new(input);
-    // Consume series of digits and try to convert into a u8
+    /// Consume series of digits and try to convert into a u8
     fn consume_u8(state: &mut TokenizerState) -> Option<Result<(u8, String), TokenizerError>> {
         // Check first character. If there is no digit character there we return None
         if let Some(first_ch) = state.iter.peek() {
@@ -451,7 +463,7 @@ pub fn tokenize(
         };
     }
 
-    // Consume a series of lowercase characters, uppercase characters and underscores
+    /// Consume a series of lowercase characters, uppercase characters and underscores
     fn consume_identifier(state: &mut TokenizerState) -> String {
         let mut result = String::new();
         while let Some(&ch) = state.iter.peek() {
@@ -464,11 +476,13 @@ pub fn tokenize(
         result
     }
 
+    /// Tokenize a token consisting of a single char
     fn tokenize_single_char_token(state: &mut TokenizerState, token_type: TokenType, char: char) {
         state.next();
         state.add_token(token_type, String::from(char));
     }
 
+    /// Tokenize a memory reference (a basic integer literal)
     fn tokenize_memory_ref(state: &mut TokenizerState) -> Result<(), TokenizerError> {
         let (num, lexeme) = consume_u8(state).unwrap()?;
         state.add_token(TokenType::Operand(Operand::MemoryRef, num), lexeme);
@@ -476,6 +490,7 @@ pub fn tokenize(
         Ok(())
     }
 
+    /// Tokenize a literal value (#000)
     fn tokenize_literal(state: &mut TokenizerState) -> Result<(), TokenizerError> {
         // Move past hashtag
         state.next();
@@ -499,7 +514,7 @@ pub fn tokenize(
     }
 
     /*
-    An identifier is either:
+    Tokenize an identifier, either:
     * A register (R0-R12)
     * A label operand
     * An opcode
@@ -590,6 +605,50 @@ pub fn tokenize(
         Ok(())
     }
 
+    /// Tokenize a single or multiline comment
+    fn comment(state: &mut TokenizerState) -> Result<(), TokenizerError> {
+        state.next();
+        // Line comment
+        match state.iter.peek() {
+            Some(&ch) => match ch {
+                '/' => state.next_until('\n'),
+                '*' => loop {
+                    if let Some(ch) = state.iter.next() {
+                        if ch == '*' {
+                            if let Some(&next) = state.iter.peek() {
+                                if next == '/' {
+                                    state.iter.next();
+                                    break;
+                                }
+                            } else {
+                                return Err(TokenizerError {
+                                    message: String::from("Unterminated block comment"),
+                                    line: state.line,
+                                    col: state.col,
+                                });
+                            }
+                        }
+                    } else {
+                        return Err(TokenizerError {
+                            message: String::from("Unterminated block comment"),
+                            line: state.line,
+                            col: state.col,
+                        });
+                    }
+                },
+                _ => {}
+            },
+            None => {
+                return Err(TokenizerError {
+                    message: String::from("Expected '//' or '/*' for comment not '/'"),
+                    line: state.line,
+                    col: state.col,
+                })
+            }
+        }
+        Ok(())
+    }
+
     while let Some(&ch) = state.iter.peek() {
         // Ignore any whitespace characters
         if ch != '\n' && ch.is_whitespace() {
@@ -599,6 +658,7 @@ pub fn tokenize(
         // Tokenizer based on characters
         match ch {
             '\n' => tokenize_single_char_token(&mut state, TokenType::Newline, ch),
+            '/' => comment(&mut state)?,
             ';' => tokenize_single_char_token(&mut state, TokenType::Semicolon, ch),
             ',' => tokenize_single_char_token(&mut state, TokenType::Comma, ch),
             '0'..='9' => tokenize_memory_ref(&mut state)?,
