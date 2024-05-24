@@ -1,0 +1,7 @@
+body:
+PRINT R0
+ADD R0, R0, #1
+condition:
+CMP R0, #255
+BLT body
+HALT;

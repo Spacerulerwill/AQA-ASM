@@ -1,0 +1,5 @@
+loop_body:
+INPUT R0
+CMP R0, #69
+BNE loop_body
+HALT;
