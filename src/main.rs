@@ -7,8 +7,11 @@ mod tokenizer;
 use inline_colorization::{color_green, color_red, color_reset, style_bold, style_reset};
 use interpreter::{interpret, RuntimeError};
 use parser::{parse, ParserError};
-use std::collections::HashSet;
-use std::{env, fs};
+use std::{
+    collections::HashSet,
+    env,
+    fs
+};
 use strsim::normalized_damerau_levenshtein;
 use tokenizer::{tokenize, Operand};
 
@@ -64,86 +67,83 @@ fn main() {
 
     // Parse and load the instructions into memory
     let mut memory: [u8; 256] = [0; 256];
-    match parse(&mut memory, &tokens, &labels) {
-        Ok(bytes) => bytes,
-        Err(err) => {
-            match err {
-                ParserError::ExpectedLineDelimeter { got } => bad_print!(
-                    "Syntax Error :: Line {}, Col {} :: Expected line delimeter (semicolon or newline), found token {}",
-                    got.line,
-                    got.col,
-                    &got.get_token_debug_repr(),
-                ),
-                ParserError::ExpectedOpcode { got } => bad_print!(
-                    "Syntax Error :: Line {}, Col {} :: Expected instruction opcode, found token {}",
-                    got.line,
-                    got.col,
-                    &got.get_token_debug_repr(),
-                ),
-                ParserError::ExpectedOperand { expected, got } => {
-                    assert!(expected.len() > 0);
-                    let unique_expected: HashSet<Operand> =   HashSet::from_iter(expected.iter().cloned());
-                    if unique_expected.len() == 1 {
-                        bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: Unexpected token {}, expected {:?}",
-                            got.line,
-                            got.col,
-                            &got.get_token_debug_repr(),
-                            expected.get(0).unwrap()
-                        )
-                    } else {
-                        let result = unique_expected
-                            .iter()
-                            .map(|s| format!("\t• {:?}", s))
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: Unexpected token {}, expected one of the following:\n{}",
-                            got.line,
-                            got.col,
-                            &got.get_token_debug_repr(),
-                            &result
-                        )
-                    }
-                },
-                ParserError::UnexpectedToken { expected, got } => bad_print!(
-                    "Syntax Error :: Line {}, Col {} :: Expected {:?}, found {}",
-                    got.line,
-                    got.col,
-                    expected,
-                    &got.get_token_debug_repr(),
-                ),
-                ParserError::InvalidLabel { token } => {
-                    let mut most_similar_label = &token.lexeme;
-                    let mut max_similarity = 0.0;
-                    for name in labels.keys() {
-                        let similitary = normalized_damerau_levenshtein(&token.lexeme, name);
-                        if similitary > max_similarity {
-                            max_similarity = similitary;
-                            most_similar_label = name;
-                        }
-                    }
-
-                    if max_similarity > 0.5 {
-                        bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: No label exists with name: {}, did you mean '{}'?",
-                            token.line,
-                            token.col,
-                            &token.get_token_debug_repr(),
-                            most_similar_label
-                        )
-                    } else {
-                        bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: No label exists with name: {}",
-                            token.line,
-                            token.col,
-                            &token.get_token_debug_repr()
-                        )
-                    }
+    if let Err(err) = parse(&mut memory, &tokens, &labels) {
+        match err {
+            ParserError::ExpectedLineDelimeter { got } => bad_print!(
+                "Syntax Error :: Line {}, Col {} :: Expected line delimeter (semicolon or newline), found token {}",
+                got.line,
+                got.col,
+                &got.get_token_debug_repr(),
+            ),
+            ParserError::ExpectedOpcode { got } => bad_print!(
+                "Syntax Error :: Line {}, Col {} :: Expected instruction opcode, found token {}",
+                got.line,
+                got.col,
+                &got.get_token_debug_repr(),
+            ),
+            ParserError::ExpectedOperand { expected, got } => {
+                assert!(expected.len() > 0);
+                let unique_expected: HashSet<Operand> =   HashSet::from_iter(expected.iter().cloned());
+                if unique_expected.len() == 1 {
+                    bad_print!(
+                        "Syntax Error :: Line {}, Col {} :: Unexpected token {}, expected {:?}",
+                        got.line,
+                        got.col,
+                        &got.get_token_debug_repr(),
+                        expected.get(0).unwrap()
+                    )
+                } else {
+                    let result = unique_expected
+                        .iter()
+                        .map(|s| format!("\t• {:?}", s))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    bad_print!(
+                        "Syntax Error :: Line {}, Col {} :: Unexpected token {}, expected one of the following:\n{}",
+                        got.line,
+                        got.col,
+                        &got.get_token_debug_repr(),
+                        &result
+                    )
+                }
             },
-            }
-            return;
+            ParserError::UnexpectedToken { expected, got } => bad_print!(
+                "Syntax Error :: Line {}, Col {} :: Expected {:?}, found {}",
+                got.line,
+                got.col,
+                expected,
+                &got.get_token_debug_repr(),
+            ),
+            ParserError::InvalidLabel { token } => {
+                let mut most_similar_label = &token.lexeme;
+                let mut max_similarity = 0.0;
+                for name in labels.keys() {
+                    let similitary = normalized_damerau_levenshtein(&token.lexeme, name);
+                    if similitary > max_similarity {
+                        max_similarity = similitary;
+                        most_similar_label = name;
+                    }
+                }
+
+                if max_similarity > 0.5 {
+                    bad_print!(
+                        "Syntax Error :: Line {}, Col {} :: No label exists with name: {}, did you mean '{}'?",
+                        token.line,
+                        token.col,
+                        &token.get_token_debug_repr(),
+                        most_similar_label
+                    )
+                } else {
+                    bad_print!(
+                        "Syntax Error :: Line {}, Col {} :: No label exists with name: {}",
+                        token.line,
+                        token.col,
+                        &token.get_token_debug_repr()
+                    )
+                }
+        },
         }
+        return;
     };
     let free_memory = 256 - program_bytes;
 

@@ -1,7 +1,9 @@
 use crate::interpreter::REGISTER_COUNT;
-use std::collections::HashMap;
-use std::iter::Peekable;
-use std::str::{Chars, FromStr};
+use std::{
+    collections::HashMap,
+    iter::Peekable,
+    str::{Chars, FromStr}
+};
 use unicode_width::UnicodeWidthChar;
 
 /// Calculate the visual width of a string

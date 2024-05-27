@@ -1,7 +1,9 @@
 use crate::tokenizer::{AssemblyOpcode, LabelDefinition, Operand, Token, TokenType};
-use std::collections::HashMap;
-use std::iter::Peekable;
-use std::slice::{Iter, IterMut};
+use std::{
+    collections::HashMap,
+    iter::Peekable,
+    slice::{Iter, IterMut}
+};
 
 #[derive(Debug)]
 pub enum ParserError {
