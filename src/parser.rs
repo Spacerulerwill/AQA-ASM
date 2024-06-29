@@ -1,4 +1,4 @@
-use crate::tokenizer::{AssemblyOpcode, LabelDefinition, Operand, Token, TokenType};
+use crate::tokenizer::{AssemblyOpcode, LabelDefinition, OperandType, Token, TokenType};
 use std::{
     collections::HashMap,
     iter::Peekable,
@@ -10,7 +10,7 @@ pub enum ParserError {
     ExpectedLineDelimeter { got: Token },
     ExpectedOpcode { got: Token },
     UnexpectedToken { expected: TokenType, got: Token },
-    ExpectedOperand { expected: Vec<Operand>, got: Token },
+    ExpectedOperand { expected: Vec<OperandType>, got: Token },
     InvalidLabel { token: Token },
 }
 
@@ -62,11 +62,11 @@ impl<'a> ParserState<'a> {
     }
 
     /// Try and consume an operand in the token stream
-    fn consume_operand(&mut self, expected_operand: Operand) -> Result<u8, ParserError> {
+    fn consume_operand(&mut self, expected_operand: OperandType) -> Result<u8, ParserError> {
         let token = self.token_iter.peek().unwrap();
         match &token.ty {
             // When consuming a label operand, we must check it exists
-            TokenType::Operand(Operand::Label, _) => {
+            TokenType::Operand(OperandType::Label, _) => {
                 if let Some(val) = self.labels.get(&token.lexeme) {
                     self.token_iter.next();
                     Ok(val.byte)
@@ -98,11 +98,11 @@ impl<'a> ParserState<'a> {
 /// into the memory space. It will return an error if parsing fails and is also responsible for resolving label operands
 /// to their corresponding label. If there is a label operand without an associated label, an error will be returned.
 pub fn parse(
-    memory: &mut [u8; 256],
     tokens: &Vec<Token>,
     labels: &HashMap<String, LabelDefinition>,
-) -> Result<(), ParserError> {
-    let mut state = ParserState::new(tokens, labels, memory);
+) -> Result<[u8; 256], ParserError> {
+    let mut memory: [u8; 256] = [0; 256];
+    let mut state = ParserState::new(tokens, labels, &mut memory);
 
     fn parse_opcode(
         state: &mut ParserState,
@@ -157,7 +157,7 @@ pub fn parse(
         }
 
         // No match found, incorrect operand at operand_idx
-        let potential_operands: Vec<Operand> = operand_formats
+        let potential_operands: Vec<OperandType> = operand_formats
             .iter()
             .map(|(_, operands)| operands.get(operand_idx).expect("This will only fail if an opcode has multiple operand patterns with different lengths!").clone())
             .collect();
@@ -195,5 +195,10 @@ pub fn parse(
             _ => return Err(ParserError::ExpectedOpcode { got: token.clone() }),
         }
     }
-    Ok(())
+    Ok(memory)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }

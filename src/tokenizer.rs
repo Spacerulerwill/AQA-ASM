@@ -24,14 +24,14 @@ pub struct TokenizerError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Operand {
+pub enum OperandType {
     Literal,
     Register,
     MemoryRef,
     Label,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct LabelDefinition {
     pub byte: u8,
     pub line: usize,
@@ -65,130 +65,130 @@ pub enum AssemblyOpcode {
 }
 
 impl AssemblyOpcode {
-    pub fn got_operand_formats(&self) -> Vec<(BinaryOpcode, Vec<Operand>)> {
+    pub fn got_operand_formats(&self) -> Vec<(BinaryOpcode, Vec<OperandType>)> {
         match self {
             AssemblyOpcode::NOP => vec![(BinaryOpcode::NOP, vec![])],
             AssemblyOpcode::LDR => vec![(
                 BinaryOpcode::LDR,
-                vec![Operand::Register, Operand::MemoryRef],
+                vec![OperandType::Register, OperandType::MemoryRef],
             )],
             AssemblyOpcode::STR => vec![(
                 BinaryOpcode::STR,
-                vec![Operand::Register, Operand::MemoryRef],
+                vec![OperandType::Register, OperandType::MemoryRef],
             )],
             AssemblyOpcode::ADD => vec![
                 (
                     BinaryOpcode::ADD_LITERAL,
-                    vec![Operand::Register, Operand::Register, Operand::Literal],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Literal],
                 ),
                 (
                     BinaryOpcode::ADD_REGISTER,
-                    vec![Operand::Register, Operand::Register, Operand::Register],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Register],
                 ),
             ],
             AssemblyOpcode::SUB => vec![
                 (
                     BinaryOpcode::SUB_LITERAL,
-                    vec![Operand::Register, Operand::Register, Operand::Literal],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Literal],
                 ),
                 (
                     BinaryOpcode::SUB_REGISTER,
-                    vec![Operand::Register, Operand::Register, Operand::Register],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Register],
                 ),
             ],
             AssemblyOpcode::MOV => vec![
                 (
                     BinaryOpcode::MOV_LITERAL,
-                    vec![Operand::Register, Operand::Literal],
+                    vec![OperandType::Register, OperandType::Literal],
                 ),
                 (
                     BinaryOpcode::MOV_REGISTER,
-                    vec![Operand::Register, Operand::Register],
+                    vec![OperandType::Register, OperandType::Register],
                 ),
             ],
             AssemblyOpcode::CMP => vec![
                 (
                     BinaryOpcode::CMP_LITERAL,
-                    vec![Operand::Register, Operand::Literal],
+                    vec![OperandType::Register, OperandType::Literal],
                 ),
                 (
                     BinaryOpcode::CMP_REGISTER,
-                    vec![Operand::Register, Operand::Register],
+                    vec![OperandType::Register, OperandType::Register],
                 ),
             ],
-            AssemblyOpcode::B => vec![(BinaryOpcode::B, vec![Operand::Label])],
-            AssemblyOpcode::BEQ => vec![(BinaryOpcode::BEQ, vec![Operand::Label])],
-            AssemblyOpcode::BNE => vec![(BinaryOpcode::BNE, vec![Operand::Label])],
-            AssemblyOpcode::BGT => vec![(BinaryOpcode::BGT, vec![Operand::Label])],
-            AssemblyOpcode::BLT => vec![(BinaryOpcode::BLT, vec![Operand::Label])],
+            AssemblyOpcode::B => vec![(BinaryOpcode::B, vec![OperandType::Label])],
+            AssemblyOpcode::BEQ => vec![(BinaryOpcode::BEQ, vec![OperandType::Label])],
+            AssemblyOpcode::BNE => vec![(BinaryOpcode::BNE, vec![OperandType::Label])],
+            AssemblyOpcode::BGT => vec![(BinaryOpcode::BGT, vec![OperandType::Label])],
+            AssemblyOpcode::BLT => vec![(BinaryOpcode::BLT, vec![OperandType::Label])],
             AssemblyOpcode::AND => vec![
                 (
                     BinaryOpcode::AND_LITERAL,
-                    vec![Operand::Register, Operand::Register, Operand::Literal],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Literal],
                 ),
                 (
                     BinaryOpcode::AND_REGISTER,
-                    vec![Operand::Register, Operand::Register, Operand::Register],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Register],
                 ),
             ],
             AssemblyOpcode::ORR => vec![
                 (
                     BinaryOpcode::ORR_LITERAL,
-                    vec![Operand::Register, Operand::Register, Operand::Literal],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Literal],
                 ),
                 (
                     BinaryOpcode::ORR_REGISTER,
-                    vec![Operand::Register, Operand::Register, Operand::Register],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Register],
                 ),
             ],
             AssemblyOpcode::EOR => vec![
                 (
                     BinaryOpcode::EOR_LITERAL,
-                    vec![Operand::Register, Operand::Register, Operand::Literal],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Literal],
                 ),
                 (
                     BinaryOpcode::EOR_REGISTER,
-                    vec![Operand::Register, Operand::Register, Operand::Register],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Register],
                 ),
             ],
             AssemblyOpcode::MVN => vec![
                 (
                     BinaryOpcode::MVN_LITERAL,
-                    vec![Operand::Register, Operand::Literal],
+                    vec![OperandType::Register, OperandType::Literal],
                 ),
                 (
                     BinaryOpcode::MVN_REGISTER,
-                    vec![Operand::Register, Operand::Register],
+                    vec![OperandType::Register, OperandType::Register],
                 ),
             ],
             AssemblyOpcode::LSL => vec![
                 (
                     BinaryOpcode::LSL_LITERAL,
-                    vec![Operand::Register, Operand::Register, Operand::Literal],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Literal],
                 ),
                 (
                     BinaryOpcode::LSL_REGISTER,
-                    vec![Operand::Register, Operand::Register, Operand::Register],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Register],
                 ),
             ],
             AssemblyOpcode::LSR => vec![
                 (
                     BinaryOpcode::LSR_LITERAL,
-                    vec![Operand::Register, Operand::Register, Operand::Literal],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Literal],
                 ),
                 (
                     BinaryOpcode::LSR_REGISTER,
-                    vec![Operand::Register, Operand::Register, Operand::Register],
+                    vec![OperandType::Register, OperandType::Register, OperandType::Register],
                 ),
             ],
             AssemblyOpcode::HALT => vec![(BinaryOpcode::HALT, vec![])],
             AssemblyOpcode::PRINT => vec![
-                (BinaryOpcode::PRINT_REGISTER, vec![Operand::Register]),
-                (BinaryOpcode::PRINT_MEMORY, vec![Operand::MemoryRef]),
+                (BinaryOpcode::PRINT_REGISTER, vec![OperandType::Register]),
+                (BinaryOpcode::PRINT_MEMORY, vec![OperandType::MemoryRef]),
             ],
             AssemblyOpcode::INPUT => vec![
-                (BinaryOpcode::INPUT_REGISTER, vec![Operand::Register]),
-                (BinaryOpcode::INPUT_MEMORY, vec![Operand::MemoryRef]),
+                (BinaryOpcode::INPUT_REGISTER, vec![OperandType::Register]),
+                (BinaryOpcode::INPUT_MEMORY, vec![OperandType::MemoryRef]),
             ],
         }
     }
@@ -308,7 +308,7 @@ impl TryFrom<u8> for BinaryOpcode {
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
-    Operand(Operand, u8),
+    Operand(OperandType, u8),
     Opcode(AssemblyOpcode),
     Newline,
     Semicolon,
@@ -411,7 +411,7 @@ impl<'a> TokenizerState<'a> {
 
 /// tokenize takes in an input source code string and returns a Vec of tokens and
 /// a HashMap of label definitions to their corresponding byte position and the
-/// amoujnt of bytes the resulting progam will use. There are multiple types of token:
+/// amount of bytes the resulting progam will use. There are multiple types of token:
 /// * Newlines / Semicolons (both are used a line delimeters)
 /// * Commas
 /// * Memory references (An unsigned 8 bit number e.g 12)
@@ -426,7 +426,7 @@ impl<'a> TokenizerState<'a> {
 /// The tokenzier will terminate early if it detects that too many bytes for the program
 /// have been loaded. Max 256.
 pub fn tokenize(
-    input: &String,
+    input: &str,
 ) -> Result<(Vec<Token>, HashMap<String, LabelDefinition>, usize), TokenizerError> {
     let mut state = TokenizerState::new(input);
     /// Consume series of digits and try to convert into a u8
@@ -487,7 +487,7 @@ pub fn tokenize(
     /// Tokenize a memory reference (a basic integer literal)
     fn tokenize_memory_ref(state: &mut TokenizerState) -> Result<(), TokenizerError> {
         let (num, lexeme) = consume_u8(state).unwrap()?;
-        state.add_token(TokenType::Operand(Operand::MemoryRef, num), lexeme);
+        state.add_token(TokenType::Operand(OperandType::MemoryRef, num), lexeme);
         state.inc_program_byte_count()?;
         Ok(())
     }
@@ -508,7 +508,7 @@ pub fn tokenize(
             }
         };
         state.add_token(
-            TokenType::Operand(Operand::Literal, num),
+            TokenType::Operand(OperandType::Literal, num),
             format!("#{}", num_lexeme),
         );
         state.inc_program_byte_count()?;
@@ -549,7 +549,7 @@ pub fn tokenize(
             }
             // Add register token
             state.add_token(
-                TokenType::Operand(Operand::Register, register_num),
+                TokenType::Operand(OperandType::Register, register_num),
                 identifier + &register_num_lexeme,
             );
             state.inc_program_byte_count()?;
@@ -600,7 +600,7 @@ pub fn tokenize(
                     }
                 }
                 // Otherwise it's a label operand
-                state.add_token(TokenType::Operand(Operand::Label, 0), identifier);
+                state.add_token(TokenType::Operand(OperandType::Label, 0), identifier);
                 state.inc_program_byte_count()?;
             }
         }
@@ -678,4 +678,129 @@ pub fn tokenize(
     // Append an EOF token
     state.add_token(TokenType::EOF, String::from(""));
     Ok((state.tokens, state.labels, state.program_bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn extract_token_types(tokens: Vec<Token>) -> Vec<TokenType> {
+        tokens.into_iter().map(|token| token.ty).collect()
+    }
+
+    #[test]
+    fn test_tokens_isolated() {
+        for (input, expected_output) in [
+            ("\n", TokenType::Newline),
+            (";", TokenType::Semicolon),
+            (",", TokenType::Comma),
+            ("123", TokenType::Operand(OperandType::MemoryRef, 123)),
+            ("#12", TokenType::Operand(OperandType::Literal, 12)),
+            ("R3", TokenType::Operand(OperandType::Register, 3)),
+            ("label_operand", TokenType::Operand(OperandType::Label, 0)),
+            ("NOP", TokenType::Opcode(AssemblyOpcode::NOP)),
+            ("LDR", TokenType::Opcode(AssemblyOpcode::LDR)),
+            ("STR", TokenType::Opcode(AssemblyOpcode::STR)),
+            ("ADD", TokenType::Opcode(AssemblyOpcode::ADD)),
+            ("SUB", TokenType::Opcode(AssemblyOpcode::SUB)),
+            ("MOV", TokenType::Opcode(AssemblyOpcode::MOV)),
+            ("CMP", TokenType::Opcode(AssemblyOpcode::CMP)),
+            ("B", TokenType::Opcode(AssemblyOpcode::B)),
+            ("BEQ", TokenType::Opcode(AssemblyOpcode::BEQ)),
+            ("BNE", TokenType::Opcode(AssemblyOpcode::BNE)),
+            ("BGT", TokenType::Opcode(AssemblyOpcode::BGT)),
+            ("BLT", TokenType::Opcode(AssemblyOpcode::BLT)),
+            ("AND", TokenType::Opcode(AssemblyOpcode::AND)),
+            ("ORR", TokenType::Opcode(AssemblyOpcode::ORR)),
+            ("EOR", TokenType::Opcode(AssemblyOpcode::EOR)),
+            ("MVN", TokenType::Opcode(AssemblyOpcode::MVN)),
+            ("LSL", TokenType::Opcode(AssemblyOpcode::LSL)),
+            ("LSR", TokenType::Opcode(AssemblyOpcode::LSR)),
+            ("PRINT", TokenType::Opcode(AssemblyOpcode::PRINT)),
+            ("INPUT", TokenType::Opcode(AssemblyOpcode::INPUT)),
+            ("HALT", TokenType::Opcode(AssemblyOpcode::HALT)),
+        ] {
+            let (tokens, labels, _) = tokenize(input).unwrap();
+            assert_eq!(extract_token_types(tokens), vec![expected_output, TokenType::EOF]);
+            assert_eq!(labels, HashMap::new());
+        }
+    }
+
+    #[test]
+    fn test_comment_line_single() {
+        let input = "NOP // Comment";
+        let tokens = extract_token_types(tokenize(input).unwrap().0);
+        let expected = vec![
+            TokenType::Opcode(AssemblyOpcode::NOP),
+            TokenType::EOF,
+        ];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_comment_line_multiline() {
+        let input = "NOP /* Multiline \n Comment */";
+        let tokens = extract_token_types(tokenize(input).unwrap().0);
+        let expected = vec![
+            TokenType::Opcode(AssemblyOpcode::NOP),
+            TokenType::EOF,
+        ];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_comment_block_multiline() {
+        let input = "NOP /* Multiline \n Comment \n */";
+        let tokens = extract_token_types(tokenize(input).unwrap().0);
+        let expected = vec![
+            TokenType::Opcode(AssemblyOpcode::NOP),
+            TokenType::EOF,
+        ];
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn test_invalid_register_number() {
+        let input = "R13";
+        let result = tokenize(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_too_large_program() {
+        let input = "NOP;".repeat(257);
+        let result = tokenize(&input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_program() {
+        let input = "";
+        assert_eq!(extract_token_types(tokenize(input).unwrap().0), vec![TokenType::EOF])
+    }
+
+    #[test]
+    fn test_label_definition_not_after_line_delimeters() {
+        let input = "NOP label:";
+        let result = tokenize(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_memory_reference_too_large() {
+        let input = "256";
+        assert!(tokenize(input).is_err());
+    }
+
+    #[test]
+    fn test_literal_value_too_large() {
+        let input = "256";
+        assert!(tokenize(input).is_err());
+    }
+
+    #[test]
+    fn test_invalid_characters() {
+        let input = "NOP; label: ??";
+        assert!(tokenize(input).is_err());
+    }
 }

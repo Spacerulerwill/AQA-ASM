@@ -327,3 +327,8 @@ pub fn interpret(memory: &mut [u8; 256], program_bytes: usize) -> Result<(), Run
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+}
