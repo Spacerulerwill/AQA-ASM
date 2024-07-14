@@ -9,3 +9,4 @@ edition = "2021"
 clap = { version = "4.5.9", features = ["derive"] }
 inline_colorization = "0.1.6"
 strsim = "0.11.1"
+strum = { version = "0.26.3", features = ["derive"] }

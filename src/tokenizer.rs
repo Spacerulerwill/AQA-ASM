@@ -1,3 +1,5 @@
+use strum::EnumIter;
+
 use crate::interpreter::REGISTER_COUNT;
 use std::{
     collections::HashMap,
@@ -70,7 +72,7 @@ pub struct LabelDefinition {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumIter)]
 pub enum AssemblyOpcode {
     NOP,
     LDR,

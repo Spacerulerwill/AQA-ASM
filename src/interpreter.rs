@@ -11,7 +11,7 @@ pub enum RuntimeError {
     OutOfBoundsWrite(usize),
 }
 
-pub fn interpret(memory: &mut [u8; 256], program_bytes: usize) -> Result<(), RuntimeError> {
+pub fn interpret(memory: &mut [u8; 256], program_bytes: usize) -> Result<[u8; REGISTER_COUNT as usize], RuntimeError> {
     let mut idx = 0;
     let mut registers: [u8; REGISTER_COUNT as usize] = [0; REGISTER_COUNT as usize];
     let mut comparison_result = 0;
@@ -325,10 +325,30 @@ pub fn interpret(memory: &mut [u8; 256], program_bytes: usize) -> Result<(), Run
             BinaryOpcode::HALT => break,
         }
     }
-    Ok(())
+    Ok(registers)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_out_of_bounds_read() {
+        let mut memory = [0; 256];
+        memory[..3].copy_from_slice(&[BinaryOpcode::LDR as u8, 0, 253]);
+        assert!(matches!(interpret(&mut memory, 3), Err(RuntimeError::OutOfBoundsRead(..))));
+    }
+
+    #[test]
+    fn test_out_of_bounds_write() {
+        let mut memory = [0; 256];
+        memory[..3].copy_from_slice(&[BinaryOpcode::STR as u8, 0, 253]);
+        assert!(matches!(interpret(&mut memory, 3), Err(RuntimeError::OutOfBoundsWrite(..))));
+    }
+
+    #[test]
+    fn test_read_past_of_memory() {
+        let mut memory = [0; 256];
+        assert!(matches!(interpret(&mut memory, 0), Err(RuntimeError::ReadPastMemory)))
+    }
 }

@@ -212,5 +212,46 @@ pub fn parse(
 
 #[cfg(test)]
 mod tests {
+    use strum::IntoEnumIterator;
+
     use super::*;
+
+    #[test]
+    fn test_all_valid_instructions() {
+        for assembly_opcode in AssemblyOpcode::iter() {
+            let operand_formats = assembly_opcode.got_operand_formats();
+            for (binary_opcode, operands) in operand_formats {
+                // Create input
+                let mut input = vec![TokenType::Opcode(assembly_opcode)];
+                for (i, &operand_type) in operands.iter().enumerate() {
+                    input.push(TokenType::Operand(operand_type, 0));
+                    if i < operands.len() - 1 {
+                        input.push(TokenType::Comma);
+                    }
+                }
+                input.push(TokenType::Semicolon);
+                input.push(TokenType::EOF);
+                // Expected result - instruction with all zero operands
+                let mut expected_result = vec![binary_opcode as u8];
+                for _ in 0..operands.len() {
+                    expected_result.push(0);
+                }
+                // Parse
+                let tokens: Vec<Token> = input.into_iter().map(|ty| Token {
+                    ty: ty,
+                    lexeme: String::new(),
+                    line: 0,
+                    col: 0
+                }).collect();
+                let memory = parse(&tokens, &HashMap::from([
+                    (String::new(), LabelDefinition{
+                        byte: 0,
+                        line: 0,
+                        col: 0
+                    })]
+                )).unwrap();
+                assert!(expected_result.iter().zip(memory.iter()).take(expected_result.len()).all(|(a, b)| a == b));
+            }
+        }
+    }
 }
