@@ -4,22 +4,36 @@ mod interpreter;
 mod parser;
 mod tokenizer;
 
+use clap::Parser;
 use inline_colorization::{color_green, color_red, color_reset, style_bold, style_reset};
 use interpreter::{interpret, RuntimeError};
 use parser::{parse, ParserError};
-use std::{
-    collections::HashSet,
-    env,
-    fs
-};
+use std::{collections::HashSet, fs};
 use strsim::normalized_damerau_levenshtein;
 use tokenizer::{tokenize, OperandType};
+
+/// An interpreter for the AQA assembly language
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// The name of the file to process
+    #[arg(index = 1)]
+    filepath: String,
+
+    /// Width of tabs
+    #[arg(short, long, default_value_t = 4)]
+    tabsize: u8,
+
+    /// Show trace table after program execution
+    #[arg(long)]
+    trace: bool,
+}
 
 /// prints bold and green
 macro_rules! good_print {
     ($($arg:tt)*) => {
         {
-            println!("{style_bold}{color_green}{}{color_reset}{style_reset}", format!($($arg)*));
+            println!("{style_bold}{color_green}{}{color_reset}{style_reset}", format!($($arg)*))
         }
     };
 }
@@ -28,22 +42,27 @@ macro_rules! good_print {
 macro_rules! bad_print {
     ($($arg:tt)*) => {
         {
-            eprintln!("{style_bold}{color_red}{}{color_reset}{style_reset}", format!($($arg)*));
+            eprintln!("{style_bold}{color_red}{}{color_reset}{style_reset}", format!($($arg)*))
         }
+    };
+}
+
+// bad_print with line and column number
+macro_rules! print_syntax_error {
+    ($arg1:expr, $arg2:expr, $($arg:tt)*) => {
+        bad_print!("Syntax Error :: Line {}, Column {} :: {}", $arg1, $arg2, format!($($arg)*))
     };
 }
 
 fn main() {
     // Command line arg handling
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        bad_print!("Argument Error :: Missing argument 1 (filepath)");
-        return;
-    }
+    let args = Args::parse();
+    let filepath = args.filepath;
+    let trace = args.trace;
+    let tabsize = args.tabsize;
 
     // Read in source file
-    let filepath = &args[1];
-    let source = match fs::read_to_string(filepath) {
+    let source = match fs::read_to_string(&filepath) {
         Ok(source) => source,
         Err(err) => {
             bad_print!("Failed to read the file {filepath}: {err}");
@@ -52,15 +71,74 @@ fn main() {
     };
 
     // Tokenize source code string
-    let (tokens, labels, program_bytes) = match tokenize(&source) {
+    let (tokens, labels, program_bytes) = match tokenize(&source, tabsize) {
         Ok(res) => res,
         Err(err) => {
-            bad_print!(
-                "Tokenizer Error :: Line {}, Col {} :: {}",
-                err.line,
-                err.col,
-                &err.message
-            );
+            match err {
+                tokenizer::TokenizerError::ProgramTooLarge { line, col } => print_syntax_error!(
+                    line, col, "Program exceeds memory limit (255 bytes)"
+                ),
+                tokenizer::TokenizerError::LiteralValueTooLarge {
+                    value_string,
+                    line,
+                    col,
+                } => print_syntax_error!(
+                    line,
+                    col,
+                    "Literal value '{}' too large (max value of 255)",
+                    &value_string
+                ),
+                tokenizer::TokenizerError::MissingNumberAfterRegisterDenoter { line, col } => print_syntax_error!(
+                    line,
+                    col,
+                    "Missing number after register denoter 'R'"
+                ),
+                tokenizer::TokenizerError::MissingNumberAfterLiteralDenoter { line, col } => print_syntax_error!(
+                    line,
+                    col,
+                    "Missing number after literal denoter '#'"
+                ),
+                tokenizer::TokenizerError::InvalidRegisterNumber { value, line, col } => print_syntax_error!(
+                    line,
+                    col,
+                    "Invalid register 'R{value}' (must be in range 0-12 inclusive)",
+                ),
+                tokenizer::TokenizerError::InvalidLabelDefinitionLocation {
+                    label_name,
+                    line,
+                    col,
+                } => print_syntax_error!(
+                    line,
+                    col,
+                    "Invalid label definition location for label '{}', labels may only appear after line delimeters (newline or ';')",
+                    &label_name
+                ),
+                tokenizer::TokenizerError::DuplicateLabelDefinition {
+                    label_name,
+                    line,
+                    col,
+                } => print_syntax_error!(
+                    line,
+                    col,
+                    "Definition for label '{}' already exists",
+                    &label_name
+                ),
+                tokenizer::TokenizerError::UnterminatedBlockComment { line, col } => print_syntax_error!(
+                    line,
+                    col,
+                    "Unterminated block comment begins here"
+                ),
+                tokenizer::TokenizerError::InvalidCommentDenoter { line, col } => print_syntax_error!(
+                    line,
+                    col,
+                    "Expected '//' or '/*' for comment not '/'"
+                ),
+                tokenizer::TokenizerError::UnexpectedCharacter { char, line, col } => print_syntax_error!(
+                    line,
+                    col,
+                    "Unexpected character: {char}"
+                ),
+            }
             return;
         }
     };
@@ -70,26 +148,27 @@ fn main() {
         Ok(memory) => memory,
         Err(err) => {
             match err {
-                ParserError::ExpectedLineDelimeter { got } => bad_print!(
-                    "Syntax Error :: Line {}, Col {} :: Expected line delimeter (semicolon or newline), found token {}",
+                ParserError::ExpectedLineDelimeter { got } => print_syntax_error!(
                     got.line,
                     got.col,
+                    "Expected line delimeter (semicolon or newline), found token {}",
                     &got.get_token_debug_repr(),
                 ),
-                ParserError::ExpectedOpcode { got } => bad_print!(
-                    "Syntax Error :: Line {}, Col {} :: Expected instruction opcode, found token {}",
+                ParserError::ExpectedOpcode { got } => print_syntax_error!(
                     got.line,
                     got.col,
+                    "Expected instruction opcode, found token {}",
                     &got.get_token_debug_repr(),
                 ),
                 ParserError::ExpectedOperand { expected, got } => {
                     assert!(expected.len() > 0);
-                    let unique_expected: HashSet<OperandType> =   HashSet::from_iter(expected.iter().cloned());
+                    let unique_expected: HashSet<OperandType> =
+                        HashSet::from_iter(expected.iter().cloned());
                     if unique_expected.len() == 1 {
-                        bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: Unexpected token {}, expected {:?}",
+                        print_syntax_error!(
                             got.line,
                             got.col,
+                            "Unexpected token {}, expected {:?}",
                             &got.get_token_debug_repr(),
                             expected.get(0).unwrap()
                         )
@@ -99,19 +178,19 @@ fn main() {
                             .map(|s| format!("\t• {:?}", s))
                             .collect::<Vec<_>>()
                             .join("\n");
-                        bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: Unexpected token {}, expected one of the following:\n{}",
+                        print_syntax_error!(
                             got.line,
                             got.col,
+                            "Unexpected token {}, expected one of the following:\n{}",
                             &got.get_token_debug_repr(),
                             &result
                         )
                     }
-                },
-                ParserError::UnexpectedToken { expected, got } => bad_print!(
-                    "Syntax Error :: Line {}, Col {} :: Expected {:?}, found {}",
+                }
+                ParserError::UnexpectedToken { expected, got } => print_syntax_error!(
                     got.line,
                     got.col,
+                    "Expected {:?}, found {}",
                     expected,
                     &got.get_token_debug_repr(),
                 ),
@@ -125,20 +204,20 @@ fn main() {
                             most_similar_label = name;
                         }
                     }
-    
+
                     if max_similarity > 0.5 {
-                        bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: No label exists with name: {}, did you mean '{}'?",
+                        print_syntax_error!(
                             token.line,
                             token.col,
+                            "No label exists with name: {}, did you mean '{}'?",
                             &token.get_token_debug_repr(),
                             most_similar_label
                         )
                     } else {
-                        bad_print!(
-                            "Syntax Error :: Line {}, Col {} :: No label exists with name: {}",
+                        print_syntax_error!(
                             token.line,
                             token.col,
+                            "No label exists with name: {}",
                             &token.get_token_debug_repr()
                         )
                     }
@@ -148,6 +227,7 @@ fn main() {
         }
     };
 
+    // Run the program
     let free_memory = 256 - program_bytes;
     good_print!(
         "Running program '{}' ({}/256 bytes in use, {} bytes free)",

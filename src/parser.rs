@@ -2,16 +2,28 @@ use crate::tokenizer::{AssemblyOpcode, LabelDefinition, OperandType, Token, Toke
 use std::{
     collections::HashMap,
     iter::Peekable,
-    slice::{Iter, IterMut}
+    slice::{Iter, IterMut},
 };
 
 #[derive(Debug)]
 pub enum ParserError {
-    ExpectedLineDelimeter { got: Token },
-    ExpectedOpcode { got: Token },
-    UnexpectedToken { expected: TokenType, got: Token },
-    ExpectedOperand { expected: Vec<OperandType>, got: Token },
-    InvalidLabel { token: Token },
+    ExpectedLineDelimeter {
+        got: Token,
+    },
+    ExpectedOpcode {
+        got: Token,
+    },
+    UnexpectedToken {
+        expected: TokenType,
+        got: Token,
+    },
+    ExpectedOperand {
+        expected: Vec<OperandType>,
+        got: Token,
+    },
+    InvalidLabel {
+        token: Token,
+    },
 }
 
 #[derive(Debug)]
