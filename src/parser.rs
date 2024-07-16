@@ -27,23 +27,57 @@ pub enum ParserError {
 }
 
 #[derive(Debug)]
-struct ParserState<'a> {
+pub struct Parser<'a> {
     token_iter: Peekable<Iter<'a, Token>>,
     labels: &'a HashMap<String, LabelDefinition>,
     memory_iter: IterMut<'a, u8>,
 }
 
-impl<'a> ParserState<'a> {
-    fn new(
+impl<'a> Parser<'a> {
+    pub fn parse(
         tokens: &'a Vec<Token>,
-        labels: &'a HashMap<String, LabelDefinition>,
-        memory: &'a mut [u8; 256],
-    ) -> ParserState<'a> {
-        ParserState {
+        labels: &'a HashMap<String, LabelDefinition>
+    ) -> Result<[u8; 256], ParserError> {
+        let mut memory = [0; 256];
+        let mut parser = Parser {
             token_iter: tokens.iter().peekable(),
-            labels: labels,
+            labels: &labels,
             memory_iter: memory.iter_mut(),
+        };
+        parser.internal_parse()?;
+        Ok(memory)
+    }
+
+    fn internal_parse(&mut self) -> Result<(), ParserError> {
+        // Parser loop
+        loop {
+            /*
+            We can safely unwrap, as the parser will stop when its reaches the EOF token,
+            not when it reaches the end of of the Vec. As long as the token stream ends
+            with an EOF token, this will never fail.
+            */
+            let token = self
+                .token_iter
+                .next()
+                .expect("Fatal error: Most likely cause is token stream without EOF token");
+            if token.ty == TokenType::EOF {
+                break;
+            }
+            /*
+            Parsed based on the tokens type. On matching an opcode, try and parse it.
+            If we see a newline or semicolon we can ignore them as we don't mind
+            erroneous line delimeters. If we find any other token, there has been an error.
+            */
+            match &token.ty {
+                TokenType::Opcode(opcode) => {
+                    self.parse_opcode(*opcode)?;
+                    self.consume_line_delimeter()?;
+                }
+                TokenType::Newline | TokenType::Semicolon => {}
+                _ => return Err(ParserError::ExpectedOpcode { got: token.clone() }),
+            }
         }
+        Ok(())
     }
 
     /// Try and consume token type in the token stream
@@ -104,20 +138,9 @@ impl<'a> ParserState<'a> {
         let current = self.memory_iter.next().expect("Fatal Error: Provided program is too large to load into memory. This should have been prevented earlier, please report as a bug.");
         *current = val;
     }
-}
-
-/// parse_load parses the tokens sequence to ensure that the tokens are in a valid order, and loads the instructions
-/// into the memory space. It will return an error if parsing fails and is also responsible for resolving label operands
-/// to their corresponding label. If there is a label operand without an associated label, an error will be returned.
-pub fn parse(
-    tokens: &Vec<Token>,
-    labels: &HashMap<String, LabelDefinition>,
-) -> Result<[u8; 256], ParserError> {
-    let mut memory: [u8; 256] = [0; 256];
-    let mut state = ParserState::new(tokens, labels, &mut memory);
 
     fn parse_opcode(
-        state: &mut ParserState,
+        &mut self,
         assembly_opcode: AssemblyOpcode,
     ) -> Result<(), ParserError> {
         let operand_formats = assembly_opcode.got_operand_formats();
@@ -126,15 +149,15 @@ pub fn parse(
         for (format_idx, (binary_opcode, format)) in operand_formats.iter().enumerate() {
             // edge case - format has no operands - instant match
             if format.len() == 0 {
-                state.write_memory(*binary_opcode as u8);
+                self.write_memory(*binary_opcode as u8);
                 return Ok(());
             }
             // Save current token iterator, so we can go back if this format doesn't match
-            let iter_save = state.token_iter.clone();
+            let iter_save = self.token_iter.clone();
             operand_idx = 0;
             for &operand in format {
                 // Consume the operand
-                match state.consume_operand(operand) {
+                match self.consume_operand(operand) {
                     Ok(val) => {
                         opcode_bytes.push(val);
                         operand_idx += 1;
@@ -149,7 +172,7 @@ pub fn parse(
                         one for proper error reporting
                         */
                         if format_idx != operand_formats.len() - 1 {
-                            state.token_iter = iter_save.clone();
+                            self.token_iter = iter_save.clone();
                         }
                         opcode_bytes.clear();
                         break;
@@ -157,13 +180,13 @@ pub fn parse(
                 }
                 // we found a match, write instruction
                 if operand_idx == format.len() {
-                    state.write_memory(*binary_opcode as u8);
+                    self.write_memory(*binary_opcode as u8);
                     for byte in opcode_bytes {
-                        state.write_memory(byte);
+                        self.write_memory(byte);
                     }
                     return Ok(());
                 } else {
-                    state.consume_token(TokenType::Comma)?;
+                    self.consume_token(TokenType::Comma)?;
                 }
             }
         }
@@ -175,40 +198,14 @@ pub fn parse(
             .collect();
         return Err(ParserError::ExpectedOperand {
             expected: potential_operands,
-            got: (*state.token_iter.peek().unwrap()).clone(),
+            got: (*self.token_iter.peek().unwrap()).clone(),
         });
     }
-
-    // Parser loop
-    loop {
-        /*
-        We can safely unwrap, as the parser will stop when its reaches the EOF token,
-        not when it reaches the end of of the Vec. As long as the token stream ends
-        with an EOF token, this will never fail.
-        */
-        let token = state
-            .token_iter
-            .next()
-            .expect("Fatal error: Most likely cause is token stream without EOF token");
-        if token.ty == TokenType::EOF {
-            break;
-        }
-        /*
-        Parsed based on the tokens type. On matching an opcode, try and parse it.
-        If we see a newline or semicolon we can ignore them as we don't mind
-        erroneous line delimeters. If we find any other token, there has been an error.
-        */
-        match &token.ty {
-            TokenType::Opcode(opcode) => {
-                parse_opcode(&mut state, *opcode)?;
-                state.consume_line_delimeter()?;
-            }
-            TokenType::Newline | TokenType::Semicolon => {}
-            _ => return Err(ParserError::ExpectedOpcode { got: token.clone() }),
-        }
-    }
-    Ok(memory)
 }
+
+/// parse_load parses the tokens sequence to ensure that the tokens are in a valid order, and loads the instructions
+/// into the memory space. It will return an error if parsing fails and is also responsible for resolving label operands
+/// to their corresponding label. If there is a label operand without an associated label, an error will be returned.
 
 #[cfg(test)]
 mod tests {
@@ -237,20 +234,32 @@ mod tests {
                     expected_result.push(0);
                 }
                 // Parse
-                let tokens: Vec<Token> = input.into_iter().map(|ty| Token {
-                    ty: ty,
-                    lexeme: String::new(),
-                    line: 0,
-                    col: 0
-                }).collect();
-                let memory = parse(&tokens, &HashMap::from([
-                    (String::new(), LabelDefinition{
-                        byte: 0,
+                let tokens: Vec<Token> = input
+                    .into_iter()
+                    .map(|ty| Token {
+                        ty: ty,
+                        lexeme: String::new(),
                         line: 0,
-                        col: 0
-                    })]
-                )).unwrap();
-                assert!(expected_result.iter().zip(memory.iter()).take(expected_result.len()).all(|(a, b)| a == b));
+                        col: 0,
+                    })
+                    .collect();
+                let memory = Parser::parse(
+                    &tokens,
+                    &HashMap::from([(
+                        String::new(),
+                        LabelDefinition {
+                            byte: 0,
+                            line: 0,
+                            col: 0,
+                        },
+                    )]),
+                )
+                .unwrap();
+                assert!(expected_result
+                    .iter()
+                    .zip(memory.iter())
+                    .take(expected_result.len())
+                    .all(|(a, b)| a == b));
             }
         }
     }

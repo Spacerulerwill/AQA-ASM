@@ -13,7 +13,7 @@ Instructions are delimited by either a semicolon or a newline character and inst
 | `SUB Rd, Rn <operand>` | Subtract the value specified by `<operand>` from the value in register `n` and store the result in register `d` |
 | `MOV Rd, <operand>` | Copy the value specified by `<operand>` into register `d` |
 | `B <label>` | Branch to the label specified by `<label>` |
-| `B<condition> <label>` | Branch to the label specified by `<label>` if the last comparison met the critereon specified by `<condition`>. Condition can be one of: `EQ` (equal too), `NEQ` (not equal too), `GT` (greater than), `LT` (less than) |
+| `B<condition> <label>` | Branch to the label specified by `<label>` if the last comparison met the critereon specified by `<condition`>. Condition can be one of: `EQ` (equal too), `NE` (not equal too), `GT` (greater than), `LT` (less than) |
 | `AND Rd, Rn, <operand>` | Perform a bitwise AND between the value in register n and the value specified by `<operand>` and store in register `d` |
 | `ORR Rd, Rn, <operand>` | Perform a bitwise OR between the value in register n and the value specified by `<operand>` and store in register `d` |
 | `EOR Rd, Rn, <operand>` | Perform a bitwise XOR between the value in register n and the value specified by `<operand>` and store in register `d` |

@@ -6,11 +6,11 @@ mod tokenizer;
 
 use clap::Parser;
 use inline_colorization::{color_green, color_red, color_reset, style_bold, style_reset};
-use interpreter::{interpret, RuntimeError};
-use parser::{parse, ParserError};
+use interpreter::{Interpreter, RuntimeError, REGISTER_COUNT};
+use parser::{Parser as MyParser, ParserError};
 use std::{collections::HashSet, fs};
 use strsim::normalized_damerau_levenshtein;
-use tokenizer::{tokenize, OperandType};
+use tokenizer::{OperandType, Tokenizer};
 
 /// An interpreter for the AQA assembly language
 #[derive(Parser, Debug)]
@@ -71,8 +71,8 @@ fn main() {
     };
 
     // Tokenize source code string
-    let (tokens, labels, program_bytes) = match tokenize(&source, tabsize) {
-        Ok(res) => res,
+    let tokenizer = match Tokenizer::tokenize(&source, tabsize) {
+        Ok(tokenizer) => tokenizer,
         Err(err) => {
             match err {
                 tokenizer::TokenizerError::ProgramTooLarge { line, col } => print_syntax_error!(
@@ -144,7 +144,7 @@ fn main() {
     };
 
     // Parse and load the instructions into memory
-    let mut memory = match parse(&tokens, &labels) {
+    let mut memory = match MyParser::parse(&tokenizer.tokens, &tokenizer.labels) {
         Ok(memory) => memory,
         Err(err) => {
             match err {
@@ -197,7 +197,7 @@ fn main() {
                 ParserError::InvalidLabel { token } => {
                     let mut most_similar_label = &token.lexeme;
                     let mut max_similarity = 0.0;
-                    for name in labels.keys() {
+                    for name in tokenizer.labels.keys() {
                         let similitary = normalized_damerau_levenshtein(&token.lexeme, name);
                         if similitary > max_similarity {
                             max_similarity = similitary;
@@ -228,14 +228,15 @@ fn main() {
     };
 
     // Run the program
-    let free_memory = 256 - program_bytes;
+    let free_memory = 256 - tokenizer.program_bytes;
+    let mut registers = [0; REGISTER_COUNT as usize];
     good_print!(
         "Running program '{}' ({}/256 bytes in use, {} bytes free)",
         &filepath,
-        program_bytes,
+        tokenizer.program_bytes,
         free_memory
     );
-    if let Err(err) = interpret(&mut memory, program_bytes) {
+    if let Err(err) = Interpreter::interpret(&mut memory, &mut registers, tokenizer.program_bytes) {
         match err {
             RuntimeError::ReadPastMemory => bad_print!("Runtime Error :: Program read past of available memory (perhaps you forgot the 'HALT' instruction?)"),
             RuntimeError::OutOfBoundsRead(idx) => bad_print!("Runtime Error :: Attempt to read memory location {idx} but max memory location is {}", free_memory - 1),
