@@ -34,9 +34,12 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    /// parse parses the tokens sequence to ensure that the tokens are in a valid order, and loads the instructions
+    /// into the memory space. It will return an error if parsing fails and is also responsible for resolving label operands
+    /// to their corresponding label. If there is a label operand without an associated label, an error will be returned.
     pub fn parse(
         tokens: &'a Vec<Token>,
-        labels: &'a HashMap<String, LabelDefinition>
+        labels: &'a HashMap<String, LabelDefinition>,
     ) -> Result<[u8; 256], ParserError> {
         let mut memory = [0; 256];
         let mut parser = Parser {
@@ -139,10 +142,7 @@ impl<'a> Parser<'a> {
         *current = val;
     }
 
-    fn parse_opcode(
-        &mut self,
-        assembly_opcode: AssemblyOpcode,
-    ) -> Result<(), ParserError> {
+    fn parse_opcode(&mut self, assembly_opcode: AssemblyOpcode) -> Result<(), ParserError> {
         let operand_formats = assembly_opcode.got_operand_formats();
         let mut opcode_bytes = Vec::new();
         let mut operand_idx = 0;
@@ -202,10 +202,6 @@ impl<'a> Parser<'a> {
         });
     }
 }
-
-/// parse_load parses the tokens sequence to ensure that the tokens are in a valid order, and loads the instructions
-/// into the memory space. It will return an error if parsing fails and is also responsible for resolving label operands
-/// to their corresponding label. If there is a label operand without an associated label, an error will be returned.
 
 #[cfg(test)]
 mod tests {

@@ -96,9 +96,7 @@ impl<'a> Interpreter<'a> {
         }
         match self.memory.get(self.program_counter) {
             Some(val) => {
-                if self.program_counter < self.program_bytes - 1 {
-                    self.program_counter += 1;
-                }
+                self.program_counter += 1;
                 Ok(*val)
             }
             None => Err(RuntimeError::ReadPastMemory),
@@ -479,7 +477,94 @@ mod tests {
     }
 
     #[test]
-    fn test_cmp() {
+    fn test_cmp_equal_numbers() {
+        // Comparison of register 0 and value 0
+        let program = &[
+            BinaryOpcode::CMP_LITERAL as u8,
+            0,
+            0,
+            BinaryOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+        let interpreter =
+            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        assert_eq!(interpreter.comparison_result, 0);
+        assert_eq!(interpreter.underflow, false);
+
+        // Comparison of contents of register 0 and 1 (both have values of 0)
+        let program = &[
+            BinaryOpcode::CMP_REGISTER as u8,
+            0,
+            1,
+            BinaryOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(program);
+        let interpreter =
+            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        assert_eq!(interpreter.comparison_result, 0);
+        assert_eq!(interpreter.underflow, false);
+    }
+
+    #[test]
+    fn test_cmp_greater_than() {
+        // Comparison of register 0 (value of 5) and value 0
+        let program = &[
+            BinaryOpcode::CMP_LITERAL as u8,
+            0,
+            0,
+            BinaryOpcode::HALT as u8,
+        ];
+        let mut memory: [u8; 256] = load_test_program(program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+        registers[0] = 5;
+        let interpreter =
+            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        assert_eq!(interpreter.comparison_result, 5);
+        assert_eq!(interpreter.underflow, false);
+
+        let program = &[
+            BinaryOpcode::CMP_REGISTER as u8,
+            0,
+            1,
+            BinaryOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(program);
+        let interpreter =
+            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        assert_eq!(interpreter.comparison_result, 5);
+        assert_eq!(interpreter.underflow, false);
+    }
+
+    #[test]
+    fn test_cmp_less_than() {
+        // Comparison of register 0 (value of 0) and value 5
+        let program = &[
+            BinaryOpcode::CMP_LITERAL as u8,
+            0,
+            5,
+            BinaryOpcode::HALT as u8,
+        ];
+        let mut memory: [u8; 256] = load_test_program(program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+        registers[1] = 5;
+        let interpreter =
+            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        assert_eq!(interpreter.comparison_result, 251);
+        assert_eq!(interpreter.underflow, true);
+
+        // Comaparison of register 0 (value of 0) and register 1 (value of 5)
+        let program = &[
+            BinaryOpcode::CMP_REGISTER as u8,
+            0,
+            1,
+            BinaryOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(program);
+        let interpreter =
+            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        assert_eq!(interpreter.comparison_result, 251);
+        assert_eq!(interpreter.underflow, true);
     }
 
     #[test]
@@ -494,20 +579,138 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         let interpreter =
             Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        assert_eq!(interpreter.program_counter, 4);
+    }
+
+    #[test]
+    fn test_beq() {
+        // Successful BEQ
+        let program = [
+            BinaryOpcode::BEQ as u8,
+            3,
+            BinaryOpcode::HALT as u8,
+            BinaryOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(&program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+        let mut interpreter = Interpreter {
+            comparison_result: 0,
+            program_bytes: program.len(),
+            memory: &mut memory,
+            registers: &mut registers,
+            program_counter: 0,
+            underflow: false,
+        };
+        interpreter.internal_interpret().unwrap();
+        assert_eq!(interpreter.program_counter, 4);
+
+        // Unsuccessful BEQ
+        interpreter.comparison_result = 1;
+        interpreter.program_counter = 0;
+        interpreter.internal_interpret().unwrap();
         assert_eq!(interpreter.program_counter, 3);
     }
 
     #[test]
-    fn test_beq() {}
+    fn test_bne() {
+        // Successful BNE
+        let program = [
+            BinaryOpcode::BNE as u8,
+            3,
+            BinaryOpcode::HALT as u8,
+            BinaryOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(&program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+        let mut interpreter = Interpreter {
+            comparison_result: 1,
+            program_bytes: program.len(),
+            memory: &mut memory,
+            registers: &mut registers,
+            program_counter: 0,
+            underflow: false,
+        };
+        interpreter.internal_interpret().unwrap();
+        assert_eq!(interpreter.program_counter, 4);
+
+        // Unsuccessful BGT
+        interpreter.comparison_result = 0;
+        interpreter.program_counter = 0;
+        interpreter.internal_interpret().unwrap();
+        assert_eq!(interpreter.program_counter, 3);
+    }
 
     #[test]
-    fn test_bne() {}
+    fn test_bgt() {
+        // Successful BGT - num is greater
+        let program = [
+            BinaryOpcode::BGT as u8,
+            3,
+            BinaryOpcode::HALT as u8,
+            BinaryOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(&program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+        let mut interpreter = Interpreter {
+            comparison_result: 1,
+            program_bytes: program.len(),
+            memory: &mut memory,
+            registers: &mut registers,
+            program_counter: 0,
+            underflow: false,
+        };
+        interpreter.internal_interpret().unwrap();
+        assert_eq!(interpreter.program_counter, 4);
+
+        // Unsuccessful BGT - nums are equal
+        interpreter.comparison_result = 0;
+        interpreter.program_counter = 0;
+        interpreter.internal_interpret().unwrap();
+        assert_eq!(interpreter.program_counter, 3);
+
+        // Unsuccesfull BGT - nums are less
+        interpreter.comparison_result = 10;
+        interpreter.underflow = true;
+        interpreter.program_counter = 0;
+        interpreter.internal_interpret().unwrap();
+        assert_eq!(interpreter.program_counter, 3);
+    }
 
     #[test]
-    fn test_bgt() {}
+    fn test_blt() {
+        // Successful BLT - num is greater
+        let program = [
+            BinaryOpcode::BLT as u8,
+            3,
+            BinaryOpcode::HALT as u8,
+            BinaryOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(&program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+        let mut interpreter = Interpreter {
+            comparison_result: 1,
+            program_bytes: program.len(),
+            memory: &mut memory,
+            registers: &mut registers,
+            program_counter: 0,
+            underflow: true,
+        };
+        interpreter.internal_interpret().unwrap();
+        assert_eq!(interpreter.program_counter, 4);
 
-    #[test]
-    fn test_blt() {}
+        // Unsuccessful BLT - nums are equal
+        interpreter.comparison_result = 0;
+        interpreter.underflow = false;
+        interpreter.program_counter = 0;
+        interpreter.internal_interpret().unwrap();
+        assert_eq!(interpreter.program_counter, 3);
+
+        // Unsuccesfull BLT - nums are less
+        interpreter.comparison_result = 10;
+        interpreter.program_counter = 0;
+        interpreter.internal_interpret().unwrap();
+        assert_eq!(interpreter.program_counter, 3);
+    }
 
     #[test]
     fn test_and() {
@@ -652,12 +855,12 @@ mod tests {
             Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
         assert_eq!(*interpreter.memory, memory_copy);
         assert_eq!(*interpreter.registers, registers_copy);
-        assert_eq!(interpreter.program_counter, 0);
+        assert_eq!(interpreter.program_counter, 1);
     }
 
     #[test]
     fn test_out_of_bounds_read() {
-        let program = vec![BinaryOpcode::LDR as u8, 0, 253];
+        let program = [BinaryOpcode::LDR as u8, 0, 253];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert!(matches!(
@@ -668,7 +871,7 @@ mod tests {
 
     #[test]
     fn test_out_of_bounds_write() {
-        let program = vec![BinaryOpcode::STR as u8, 0, 253];
+        let program = [BinaryOpcode::STR as u8, 0, 253];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert!(matches!(
@@ -679,7 +882,7 @@ mod tests {
 
     #[test]
     fn test_read_past_of_memory() {
-        let program = vec![];
+        let program = [];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert!(matches!(

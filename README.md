@@ -11,6 +11,7 @@ Instructions are delimited by either a semicolon or a newline character and inst
 | `STR Rd, <memory ref>` | Store the value in register `d` into the memory location `<memory ref>` |
 | `ADD Rd, Rn, <operand>` | Add the value specified by `<operand>` to the value in register `n` and store the result in register `d` |
 | `SUB Rd, Rn <operand>` | Subtract the value specified by `<operand>` from the value in register `n` and store the result in register `d` |
+| `CMP Rn, <operand>` | Compare the value stored in register `n` with the value specified by `<operand>` |
 | `MOV Rd, <operand>` | Copy the value specified by `<operand>` into register `d` |
 | `B <label>` | Branch to the label specified by `<label>` |
 | `B<condition> <label>` | Branch to the label specified by `<label>` if the last comparison met the critereon specified by `<condition`>. Condition can be one of: `EQ` (equal too), `NE` (not equal too), `GT` (greater than), `LT` (less than) |
