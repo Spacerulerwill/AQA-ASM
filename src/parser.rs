@@ -209,6 +209,18 @@ mod tests {
 
     use super::*;
 
+    fn create_tokens_from_token_type(token_types: &[TokenType]) -> Vec<Token> {
+        token_types
+        .into_iter()
+        .map(|&ty| Token {
+            ty: ty,
+            lexeme: String::new(),
+            line: 0,
+            col: 0,
+        })
+        .collect()
+    }
+
     #[test]
     fn test_all_valid_instructions() {
         for assembly_opcode in AssemblyOpcode::iter() {
@@ -230,15 +242,7 @@ mod tests {
                     expected_result.push(0);
                 }
                 // Parse
-                let tokens: Vec<Token> = input
-                    .into_iter()
-                    .map(|ty| Token {
-                        ty: ty,
-                        lexeme: String::new(),
-                        line: 0,
-                        col: 0,
-                    })
-                    .collect();
+                let tokens = create_tokens_from_token_type(&input);
                 let memory = Parser::parse(
                     &tokens,
                     &HashMap::from([(
@@ -258,5 +262,61 @@ mod tests {
                     .all(|(a, b)| a == b));
             }
         }
+    }
+
+    #[test]
+    fn test_missing_line_delimeter() {
+        let program = &[
+            TokenType::Opcode(AssemblyOpcode::ADD),
+            TokenType::Operand(OperandType::Register, 0),
+            TokenType::Comma,
+            TokenType::Operand(OperandType::Register, 0),
+            TokenType::Comma,
+            TokenType::Operand(OperandType::Literal, 0),
+            TokenType::EOF
+        ];
+        let tokens = create_tokens_from_token_type(program);
+        assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::ExpectedLineDelimeter { .. })));
+    }
+
+    #[test]
+    fn test_expected_opcode() {
+        let program = &[
+            TokenType::Operand(OperandType::Register, 0),
+        ];
+        let tokens = create_tokens_from_token_type(program);
+        assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::ExpectedOpcode { .. })));
+    }
+
+    #[test]
+    fn test_unexpected_token() {
+        let program = &[
+            TokenType::Opcode(AssemblyOpcode::ADD),
+            TokenType::Operand(OperandType::Register, 0),
+            TokenType::Semicolon,
+
+        ];
+        let tokens = create_tokens_from_token_type(program);
+        assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::UnexpectedToken { .. })));
+    }
+
+    #[test]
+    fn test_expected_operand() {
+        let program = &[
+            TokenType::Opcode(AssemblyOpcode::ADD),
+            TokenType::Comma,
+        ];
+        let tokens = create_tokens_from_token_type(program);
+        assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::ExpectedOperand { .. })));
+    }
+
+    #[test]
+    fn test_invalid_label() {
+        let program = &[
+            TokenType::Opcode(AssemblyOpcode::B),
+            TokenType::Operand(OperandType::Label, 0),
+        ];
+        let tokens = create_tokens_from_token_type(program);
+        assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::InvalidLabel { .. })));
     }
 }

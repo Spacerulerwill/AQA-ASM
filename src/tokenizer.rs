@@ -806,7 +806,7 @@ mod tests {
         assert_eq!(token_types, expected);
     }
 
-    // Asser tokenizer produces specific error type
+    // Assert tokenizer produces specific error type
     macro_rules! assert_tokenizer_error {
         ($input:expr, $expected_error:pat) => {
             assert!(matches!(
