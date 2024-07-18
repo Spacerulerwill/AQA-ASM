@@ -23,10 +23,6 @@ struct Args {
     /// Width of tabs
     #[arg(short, long, default_value_t = 4)]
     tabsize: u8,
-
-    /// Show trace table after program execution
-    #[arg(long)]
-    trace: bool,
 }
 
 /// prints bold and green
@@ -58,7 +54,6 @@ fn main() {
     // Command line arg handling
     let args = Args::parse();
     let filepath = args.filepath;
-    let trace = args.trace;
     let tabsize = args.tabsize;
 
     // Read in source file
