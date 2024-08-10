@@ -1,4 +1,4 @@
-use crate::tokenizer::{AssemblyOpcode, LabelDefinition, OperandType, Token, TokenType};
+use crate::tokenizer::{AssemblyOpcode, LabelDefinition, OperandType, Token, TokenKind};
 use std::{
     collections::HashMap,
     iter::Peekable,
@@ -14,7 +14,7 @@ pub enum ParserError {
         got: Token,
     },
     UnexpectedToken {
-        expected: TokenType,
+        expected: TokenKind,
         got: Token,
     },
     ExpectedOperand {
@@ -63,7 +63,7 @@ impl<'a> Parser<'a> {
                 .token_iter
                 .next()
                 .expect("Fatal error: Most likely cause is token stream without EOF token");
-            if token.ty == TokenType::EOF {
+            if token.kind == TokenKind::EOF {
                 break;
             }
             /*
@@ -71,12 +71,12 @@ impl<'a> Parser<'a> {
             If we see a newline or semicolon we can ignore them as we don't mind
             erroneous line delimeters. If we find any other token, there has been an error.
             */
-            match &token.ty {
-                TokenType::Opcode(opcode) => {
+            match &token.kind {
+                TokenKind::Opcode(opcode) => {
                     self.parse_opcode(*opcode)?;
                     self.consume_line_delimeter()?;
                 }
-                TokenType::Newline | TokenType::Semicolon => {}
+                TokenKind::Newline | TokenKind::Semicolon => {}
                 _ => return Err(ParserError::ExpectedOpcode { got: token.clone() }),
             }
         }
@@ -84,9 +84,9 @@ impl<'a> Parser<'a> {
     }
 
     /// Try and consume token type in the token stream
-    fn consume_token(&mut self, token_type: TokenType) -> Result<(), ParserError> {
+    fn consume_token(&mut self, token_type: TokenKind) -> Result<(), ParserError> {
         let token = self.token_iter.peek().unwrap();
-        if token.ty == token_type {
+        if token.kind == token_type {
             self.token_iter.next();
             Ok(())
         } else {
@@ -100,8 +100,8 @@ impl<'a> Parser<'a> {
     /// Try and consume a line delimeter in the token stream
     fn consume_line_delimeter(&mut self) -> Result<(), ParserError> {
         let token = self.token_iter.peek().unwrap();
-        match token.ty {
-            TokenType::Newline | TokenType::Semicolon => return Ok(()),
+        match token.kind {
+            TokenKind::Newline | TokenKind::Semicolon => return Ok(()),
             _ => {
                 return Err(ParserError::ExpectedLineDelimeter {
                     got: (*token).clone(),
@@ -113,9 +113,9 @@ impl<'a> Parser<'a> {
     /// Try and consume an operand in the token stream
     fn consume_operand(&mut self, expected_operand: OperandType) -> Result<u8, ParserError> {
         let token = self.token_iter.peek().unwrap();
-        match &token.ty {
+        match &token.kind {
             // When consuming a label operand, we must check it exists
-            TokenType::Operand(OperandType::Label, _) => {
+            TokenKind::Operand(OperandType::Label, _) => {
                 if let Some(val) = self.labels.get(&token.lexeme) {
                     self.token_iter.next();
                     Ok(val.byte)
@@ -126,7 +126,7 @@ impl<'a> Parser<'a> {
                 }
             }
             // Consuming other operands - just check equal type
-            TokenType::Operand(actual_operand, val) if *actual_operand == expected_operand => {
+            TokenKind::Operand(actual_operand, val) if *actual_operand == expected_operand => {
                 self.token_iter.next();
                 Ok(*val)
             }
@@ -186,7 +186,7 @@ impl<'a> Parser<'a> {
                     }
                     return Ok(());
                 } else {
-                    self.consume_token(TokenType::Comma)?;
+                    self.consume_token(TokenKind::Comma)?;
                 }
             }
         }
@@ -209,11 +209,11 @@ mod tests {
 
     use super::*;
 
-    fn create_tokens_from_token_type(token_types: &[TokenType]) -> Vec<Token> {
+    fn create_tokens_from_token_type(token_types: &[TokenKind]) -> Vec<Token> {
         token_types
         .into_iter()
         .map(|&ty| Token {
-            ty: ty,
+            kind: ty,
             lexeme: String::new(),
             line: 0,
             col: 0,
@@ -227,15 +227,15 @@ mod tests {
             let operand_formats = assembly_opcode.got_operand_formats();
             for (binary_opcode, operands) in operand_formats {
                 // Create input
-                let mut input = vec![TokenType::Opcode(assembly_opcode)];
+                let mut input = vec![TokenKind::Opcode(assembly_opcode)];
                 for (i, &operand_type) in operands.iter().enumerate() {
-                    input.push(TokenType::Operand(operand_type, 0));
+                    input.push(TokenKind::Operand(operand_type, 0));
                     if i < operands.len() - 1 {
-                        input.push(TokenType::Comma);
+                        input.push(TokenKind::Comma);
                     }
                 }
-                input.push(TokenType::Semicolon);
-                input.push(TokenType::EOF);
+                input.push(TokenKind::Semicolon);
+                input.push(TokenKind::EOF);
                 // Expected result - instruction with all zero operands
                 let mut expected_result = vec![binary_opcode as u8];
                 for _ in 0..operands.len() {
@@ -267,13 +267,13 @@ mod tests {
     #[test]
     fn test_missing_line_delimeter() {
         let program = &[
-            TokenType::Opcode(AssemblyOpcode::ADD),
-            TokenType::Operand(OperandType::Register, 0),
-            TokenType::Comma,
-            TokenType::Operand(OperandType::Register, 0),
-            TokenType::Comma,
-            TokenType::Operand(OperandType::Literal, 0),
-            TokenType::EOF
+            TokenKind::Opcode(AssemblyOpcode::ADD),
+            TokenKind::Operand(OperandType::Register, 0),
+            TokenKind::Comma,
+            TokenKind::Operand(OperandType::Register, 0),
+            TokenKind::Comma,
+            TokenKind::Operand(OperandType::Literal, 0),
+            TokenKind::EOF
         ];
         let tokens = create_tokens_from_token_type(program);
         assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::ExpectedLineDelimeter { .. })));
@@ -282,7 +282,7 @@ mod tests {
     #[test]
     fn test_expected_opcode() {
         let program = &[
-            TokenType::Operand(OperandType::Register, 0),
+            TokenKind::Operand(OperandType::Register, 0),
         ];
         let tokens = create_tokens_from_token_type(program);
         assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::ExpectedOpcode { .. })));
@@ -291,9 +291,9 @@ mod tests {
     #[test]
     fn test_unexpected_token() {
         let program = &[
-            TokenType::Opcode(AssemblyOpcode::ADD),
-            TokenType::Operand(OperandType::Register, 0),
-            TokenType::Semicolon,
+            TokenKind::Opcode(AssemblyOpcode::ADD),
+            TokenKind::Operand(OperandType::Register, 0),
+            TokenKind::Semicolon,
 
         ];
         let tokens = create_tokens_from_token_type(program);
@@ -303,8 +303,8 @@ mod tests {
     #[test]
     fn test_expected_operand() {
         let program = &[
-            TokenType::Opcode(AssemblyOpcode::ADD),
-            TokenType::Comma,
+            TokenKind::Opcode(AssemblyOpcode::ADD),
+            TokenKind::Comma,
         ];
         let tokens = create_tokens_from_token_type(program);
         assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::ExpectedOperand { .. })));
@@ -313,8 +313,8 @@ mod tests {
     #[test]
     fn test_invalid_label() {
         let program = &[
-            TokenType::Opcode(AssemblyOpcode::B),
-            TokenType::Operand(OperandType::Label, 0),
+            TokenKind::Opcode(AssemblyOpcode::B),
+            TokenKind::Operand(OperandType::Label, 0),
         ];
         let tokens = create_tokens_from_token_type(program);
         assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::InvalidLabel { .. })));

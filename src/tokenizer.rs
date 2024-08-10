@@ -396,7 +396,7 @@ impl TryFrom<u8> for BinaryOpcode {
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TokenType {
+pub enum TokenKind {
     Operand(OperandType, u8),
     Opcode(AssemblyOpcode),
     Newline,
@@ -405,22 +405,22 @@ pub enum TokenType {
     EOF,
 }
 
-impl Token {
-    pub fn get_token_debug_repr(&self) -> String {
-        match &self.ty {
-            TokenType::Newline => String::from("'newline'"),
-            TokenType::EOF => String::from("'end of file'"),
-            _ => format!("'{}'", &self.lexeme),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
-    pub ty: TokenType,
+    pub kind: TokenKind,
     pub lexeme: String,
     pub line: usize,
     pub col: usize,
+}
+
+impl Token {
+    pub fn get_token_debug_repr(&self) -> String {
+        match &self.kind {
+            TokenKind::Newline => String::from("'newline'"),
+            TokenKind::EOF => String::from("'end of file'"),
+            _ => format!("'{}'", &self.lexeme),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -475,10 +475,10 @@ impl<'a> Tokenizer<'a> {
             }
             // Tokenizer based on characters
             match ch {
-                '\n' => self.tokenize_single_char_token(TokenType::Newline, ch),
+                '\n' => self.tokenize_single_char_token(TokenKind::Newline, ch),
                 '/' => self.comment()?,
-                ';' => self.tokenize_single_char_token(TokenType::Semicolon, ch),
-                ',' => self.tokenize_single_char_token(TokenType::Comma, ch),
+                ';' => self.tokenize_single_char_token(TokenKind::Semicolon, ch),
+                ',' => self.tokenize_single_char_token(TokenKind::Comma, ch),
                 '0'..='9' => self.tokenize_memory_ref()?,
                 '#' => self.tokenize_literal()?,
                 'a'..='z' | 'A'..='Z' | '_' => self.tokenizer_identifier()?,
@@ -494,7 +494,7 @@ impl<'a> Tokenizer<'a> {
 
         // Append an EOF token
         self.tokens.push(Token {
-            ty: TokenType::EOF,
+            kind: TokenKind::EOF,
             lexeme: String::from("EOF"),
             line: self.line,
             col: self.col,
@@ -579,12 +579,12 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Tokenize a token consisting of a single char (newlines, semicolons, commas)
-    fn tokenize_single_char_token(&mut self, token_type: TokenType, char: char) {
+    fn tokenize_single_char_token(&mut self, token_type: TokenKind, char: char) {
         let line = self.line;
         let col = self.col;
         self.next();
         self.tokens.push(Token {
-            ty: token_type,
+            kind: token_type,
             lexeme: String::from(char),
             line: line,
             col: col,
@@ -597,7 +597,7 @@ impl<'a> Tokenizer<'a> {
         let col = self.col;
         let (num, lexeme) = self.consume_u8().unwrap()?;
         self.tokens.push(Token {
-            ty: TokenType::Operand(OperandType::MemoryRef, num),
+            kind: TokenKind::Operand(OperandType::MemoryRef, num),
             lexeme: lexeme,
             line: line,
             col: col,
@@ -623,7 +623,7 @@ impl<'a> Tokenizer<'a> {
             }
         };
         self.tokens.push(Token {
-            ty: TokenType::Operand(OperandType::Literal, num),
+            kind: TokenKind::Operand(OperandType::Literal, num),
             lexeme: format!("#{}", num_lexeme),
             line: line,
             col: col,
@@ -660,7 +660,7 @@ impl<'a> Tokenizer<'a> {
                 });
             }
             self.tokens.push(Token {
-                ty: TokenType::Operand(OperandType::Register, register_num),
+                kind: TokenKind::Operand(OperandType::Register, register_num),
                 lexeme: format!("R{}", &register_num_lexeme),
                 line: line,
                 col: col,
@@ -672,7 +672,7 @@ impl<'a> Tokenizer<'a> {
         // Is it an opcode
         if let Ok(opcode) = AssemblyOpcode::from_str(&identifier) {
             self.tokens.push(Token {
-                ty: TokenType::Opcode(opcode),
+                kind: TokenKind::Opcode(opcode),
                 lexeme: identifier,
                 line: line,
                 col: col,
@@ -688,9 +688,9 @@ impl<'a> Tokenizer<'a> {
                 // label definitions can only appear after newlines and semicolons
                 match self.tokens.last() {
                     Some(token)
-                        if token.ty != TokenType::Semicolon && token.ty != TokenType::Newline =>
+                        if token.kind != TokenKind::Semicolon && token.kind != TokenKind::Newline =>
                     {
-                        dbg!(token.ty);
+                        dbg!(token.kind);
                         return Err(TokenizerError::InvalidLabelDefinitionLocation {
                             label_name: identifier,
                             line: line,
@@ -724,7 +724,7 @@ impl<'a> Tokenizer<'a> {
 
         // It must be a label operand
         self.tokens.push(Token {
-            ty: TokenType::Operand(OperandType::Label, 0),
+            kind: TokenKind::Operand(OperandType::Label, 0),
             lexeme: identifier,
             line: line,
             col: col,
@@ -788,8 +788,8 @@ mod tests {
     use super::*;
 
     /// Given a Vec<Token> return a Vec<TokenType> (the token type for each token)
-    fn extract_token_types(tokens: Vec<Token>) -> Vec<TokenType> {
-        tokens.into_iter().map(|token| token.ty).collect()
+    fn extract_token_types(tokens: Vec<Token>) -> Vec<TokenKind> {
+        tokens.into_iter().map(|token| token.kind).collect()
     }
 
     /// Given a Vec<Token> return vec of tuples of line and column numbers for each token
@@ -801,7 +801,7 @@ mod tests {
     }
 
     /// Test tokenizer produce correct token type sequence for given input string
-    fn test_token_type_sequence(input: &str, expected: &[TokenType]) {
+    fn test_token_type_sequence(input: &str, expected: &[TokenKind]) {
         let token_types = extract_token_types(Tokenizer::tokenize(input, 4).unwrap().tokens);
         assert_eq!(token_types, expected);
     }
@@ -819,36 +819,36 @@ mod tests {
     #[test]
     fn test_tokens_isolated() {
         for (input, expected_output) in [
-            ("\n", TokenType::Newline),
-            (";", TokenType::Semicolon),
-            (",", TokenType::Comma),
-            ("123", TokenType::Operand(OperandType::MemoryRef, 123)),
-            ("#12", TokenType::Operand(OperandType::Literal, 12)),
-            ("R3", TokenType::Operand(OperandType::Register, 3)),
-            ("label_operand", TokenType::Operand(OperandType::Label, 0)),
-            ("NOP", TokenType::Opcode(AssemblyOpcode::NOP)),
-            ("LDR", TokenType::Opcode(AssemblyOpcode::LDR)),
-            ("STR", TokenType::Opcode(AssemblyOpcode::STR)),
-            ("ADD", TokenType::Opcode(AssemblyOpcode::ADD)),
-            ("SUB", TokenType::Opcode(AssemblyOpcode::SUB)),
-            ("MOV", TokenType::Opcode(AssemblyOpcode::MOV)),
-            ("CMP", TokenType::Opcode(AssemblyOpcode::CMP)),
-            ("B", TokenType::Opcode(AssemblyOpcode::B)),
-            ("BEQ", TokenType::Opcode(AssemblyOpcode::BEQ)),
-            ("BNE", TokenType::Opcode(AssemblyOpcode::BNE)),
-            ("BGT", TokenType::Opcode(AssemblyOpcode::BGT)),
-            ("BLT", TokenType::Opcode(AssemblyOpcode::BLT)),
-            ("AND", TokenType::Opcode(AssemblyOpcode::AND)),
-            ("ORR", TokenType::Opcode(AssemblyOpcode::ORR)),
-            ("EOR", TokenType::Opcode(AssemblyOpcode::EOR)),
-            ("MVN", TokenType::Opcode(AssemblyOpcode::MVN)),
-            ("LSL", TokenType::Opcode(AssemblyOpcode::LSL)),
-            ("LSR", TokenType::Opcode(AssemblyOpcode::LSR)),
-            ("PRINT", TokenType::Opcode(AssemblyOpcode::PRINT)),
-            ("INPUT", TokenType::Opcode(AssemblyOpcode::INPUT)),
-            ("HALT", TokenType::Opcode(AssemblyOpcode::HALT)),
+            ("\n", TokenKind::Newline),
+            (";", TokenKind::Semicolon),
+            (",", TokenKind::Comma),
+            ("123", TokenKind::Operand(OperandType::MemoryRef, 123)),
+            ("#12", TokenKind::Operand(OperandType::Literal, 12)),
+            ("R3", TokenKind::Operand(OperandType::Register, 3)),
+            ("label_operand", TokenKind::Operand(OperandType::Label, 0)),
+            ("NOP", TokenKind::Opcode(AssemblyOpcode::NOP)),
+            ("LDR", TokenKind::Opcode(AssemblyOpcode::LDR)),
+            ("STR", TokenKind::Opcode(AssemblyOpcode::STR)),
+            ("ADD", TokenKind::Opcode(AssemblyOpcode::ADD)),
+            ("SUB", TokenKind::Opcode(AssemblyOpcode::SUB)),
+            ("MOV", TokenKind::Opcode(AssemblyOpcode::MOV)),
+            ("CMP", TokenKind::Opcode(AssemblyOpcode::CMP)),
+            ("B", TokenKind::Opcode(AssemblyOpcode::B)),
+            ("BEQ", TokenKind::Opcode(AssemblyOpcode::BEQ)),
+            ("BNE", TokenKind::Opcode(AssemblyOpcode::BNE)),
+            ("BGT", TokenKind::Opcode(AssemblyOpcode::BGT)),
+            ("BLT", TokenKind::Opcode(AssemblyOpcode::BLT)),
+            ("AND", TokenKind::Opcode(AssemblyOpcode::AND)),
+            ("ORR", TokenKind::Opcode(AssemblyOpcode::ORR)),
+            ("EOR", TokenKind::Opcode(AssemblyOpcode::EOR)),
+            ("MVN", TokenKind::Opcode(AssemblyOpcode::MVN)),
+            ("LSL", TokenKind::Opcode(AssemblyOpcode::LSL)),
+            ("LSR", TokenKind::Opcode(AssemblyOpcode::LSR)),
+            ("PRINT", TokenKind::Opcode(AssemblyOpcode::PRINT)),
+            ("INPUT", TokenKind::Opcode(AssemblyOpcode::INPUT)),
+            ("HALT", TokenKind::Opcode(AssemblyOpcode::HALT)),
         ] {
-            test_token_type_sequence(input, &[expected_output, TokenType::EOF]);
+            test_token_type_sequence(input, &[expected_output, TokenKind::EOF]);
         }
     }
 
@@ -856,7 +856,7 @@ mod tests {
     fn test_comment_line_single() {
         test_token_type_sequence(
             "NOP // Comment",
-            &[TokenType::Opcode(AssemblyOpcode::NOP), TokenType::EOF],
+            &[TokenKind::Opcode(AssemblyOpcode::NOP), TokenKind::EOF],
         );
     }
 
@@ -864,7 +864,7 @@ mod tests {
     fn test_comment_line_multiline() {
         test_token_type_sequence(
             "NOP /* Multiline \n Comment */",
-            &[TokenType::Opcode(AssemblyOpcode::NOP), TokenType::EOF],
+            &[TokenKind::Opcode(AssemblyOpcode::NOP), TokenKind::EOF],
         );
     }
 
@@ -873,16 +873,16 @@ mod tests {
         test_token_type_sequence(
             "NOP /* Multiline \n Comment \n */ NOP",
             &[
-                TokenType::Opcode(AssemblyOpcode::NOP),
-                TokenType::Opcode(AssemblyOpcode::NOP),
-                TokenType::EOF,
+                TokenKind::Opcode(AssemblyOpcode::NOP),
+                TokenKind::Opcode(AssemblyOpcode::NOP),
+                TokenKind::EOF,
             ],
         );
     }
 
     #[test]
     fn test_empty_program() {
-        test_token_type_sequence("", &[TokenType::EOF]);
+        test_token_type_sequence("", &[TokenKind::EOF]);
     }
 
     #[test]
