@@ -20,12 +20,69 @@ pub struct Token {
     pub col: usize,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct TokenPosition {
+    pub idx: usize,
+    pub line: usize,
+    pub col: usize,
+}
+
+impl TokenPosition {
+    pub fn default() -> Self {
+        Self {
+            idx: 0,
+            line: 1,
+            col: 1,
+        }
+    }
+}
+
 impl Token {
     pub fn get_token_debug_repr(&self) -> String {
         match &self.kind {
             TokenKind::Newline => String::from("'newline'"),
             TokenKind::EOF => String::from("'end of file'"),
             _ => format!("'{}'", &self.lexeme),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Token, TokenKind};
+
+    #[test]
+    fn test_get_token_debug_repr() {
+        for (input, expected) in [
+            (
+                Token {
+                    kind: TokenKind::Newline,
+                    lexeme: String::from("\n"),
+                    line: 0,
+                    col: 0,
+                },
+                "'newline'",
+            ),
+            (
+                Token {
+                    kind: TokenKind::EOF,
+                    lexeme: String::from("EOF"),
+                    line: 0,
+                    col: 0,
+                },
+                "'end of file'",
+            ),
+            (
+                Token {
+                    kind: TokenKind::Comma,
+                    lexeme: String::from(","),
+                    line: 0,
+                    col: 0,
+                },
+                "','",
+            ),
+        ] {
+            assert_eq!(input.get_token_debug_repr(), expected);
         }
     }
 }

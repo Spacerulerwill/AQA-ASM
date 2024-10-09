@@ -1,4 +1,6 @@
-use crate::{interpreter::REGISTER_COUNT, tokenizer::InvalidLabelDefinitionLocation};
+use crate::{
+    interpreter::REGISTER_COUNT, tokenizer::InvalidLabelDefinitionLocation,
+};
 use std::{
     collections::HashMap,
     iter::Peekable,
@@ -8,7 +10,7 @@ use std::{
 use super::{
     DuplicateLabelDefinition, InvalidCommentDenoter, InvalidRegisterNumber, LiteralValueTooLarge,
     MissingNumberAfterLiteralDenoter, MissingNumberAfterRegisterDenoter, ProgramTooLarge, Token,
-    TokenKind, TokenizerError, UnexpectedCharacter, UnterminatedBlockComment,
+    TokenKind, TokenPosition, TokenizerError, UnexpectedCharacter, UnterminatedBlockComment,
 };
 use crate::source_opcode::SourceOpcode;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -30,10 +32,11 @@ pub struct LabelDefinition {
 pub struct Tokenizer<'a> {
     pub tokens: Vec<Token>,
     pub labels: HashMap<String, LabelDefinition>,
-    iter: Peekable<Chars<'a>>,
-    line: usize,
-    col: usize,
     pub program_bytes: usize,
+    input: &'a str,
+    iter: Peekable<Chars<'a>>,
+    prev_pos: TokenPosition,
+    current_pos: TokenPosition,
     tabsize: usize,
 }
 
@@ -42,10 +45,11 @@ impl<'a> Tokenizer<'a> {
         let mut tokenizer = Tokenizer {
             tokens: Vec::new(),
             labels: HashMap::new(),
-            iter: input.chars().peekable(),
-            line: 1,
-            col: 1,
             program_bytes: 0,
+            input: input,
+            iter: input.chars().peekable(),
+            prev_pos: TokenPosition::default(),
+            current_pos: TokenPosition::default(),
             tabsize: tabsize as usize,
         };
         tokenizer.interal_tokenize()?;
@@ -74,56 +78,56 @@ impl<'a> Tokenizer<'a> {
             // Ignore any whitespace characters
             if ch != '\n' && ch.is_whitespace() {
                 self.next();
+                self.prev_pos = self.current_pos.clone();
                 continue;
             }
-            // Tokenizer based on characters
+
             match ch {
-                '\n' => self.tokenize_single_char_token(TokenKind::Newline, ch),
-                '/' => self.comment()?,
-                ';' => self.tokenize_single_char_token(TokenKind::Semicolon, ch),
-                ',' => self.tokenize_single_char_token(TokenKind::Comma, ch),
-                '0'..='9' => self.tokenize_memory_ref()?,
+                '\n' => self.add_single_char_token(TokenKind::Newline)?,
+                ';' => self.add_single_char_token(TokenKind::Semicolon)?,
+                ',' => self.add_single_char_token(TokenKind::Comma)?,
+                '0'..='9' => self.tokenize_memory_reference()?,
+                'a'..='z' | 'A'..='Z' | '_' => self.tokenize_identifier()?,
                 '#' => self.tokenize_literal()?,
-                'a'..='z' | 'A'..='Z' | '_' => self.tokenizer_identifier()?,
-                _ => {
+                '/' => self.comment()?,
+                ch => {
                     return Err(TokenizerError::UnexpectedCharacter(Box::new(
                         UnexpectedCharacter {
                             char: ch,
-                            line: self.line,
-                            col: self.col,
+                            position: self.prev_pos.clone(),
                         },
                     )))
                 }
-            }
+            };
         }
 
-        // Append an EOF token
+        // EOF token
         self.tokens.push(Token {
             kind: TokenKind::EOF,
             lexeme: String::from("EOF"),
-            line: self.line,
-            col: self.col,
+            line: self.current_pos.line,
+            col: self.current_pos.col,
         });
         Ok(())
     }
 
-    /// Consume character
+    /// Consume character, adjusting token positions accordingly
     fn next(&mut self) -> Option<char> {
         if let Some(ch) = self.iter.next() {
             match ch {
                 '\n' => {
-                    self.line += 1;
-                    self.col = 1;
+                    self.current_pos.line += 1;
+                    self.current_pos.col = 1;
                 }
-                '\t' => self.col += self.tabsize,
-                _ => self.col += 1,
+                '\t' => self.current_pos.col += self.tabsize as usize,
+                _ => self.current_pos.col += 1,
             }
+            self.current_pos.idx += ch.len_utf8();
             return Some(ch);
         }
         return None;
     }
 
-    /// Increase program byte count, throwing error if it gets too large
     fn inc_program_byte_count(&mut self) -> Result<(), TokenizerError> {
         if self.program_bytes == 256 {
             let most_recent_token = self
@@ -139,225 +143,166 @@ impl<'a> Tokenizer<'a> {
         Ok(())
     }
 
-    /// Consume series of digits and try to convert into a u8
-    fn consume_u8(&mut self) -> Option<Result<(u8, String), TokenizerError>> {
-        let line = self.line;
-        let col = self.col;
-        // Check first character. If there is no character or no digit character there we return None
-        if self.iter.peek().map_or(true, |ch| !ch.is_digit(10)) {
-            return None;
-        }
-        // Collect all digits into string until we find a non-digit
-        let mut digit_string = String::new();
+    /// Consume a string of characters while a condition is met
+    fn consume_while<F>(&mut self, condition: F) -> String
+    where
+        F: Fn(char) -> bool,
+    {
+        let mut string = String::new();
         while let Some(&ch) = self.iter.peek() {
-            if ch.is_digit(10) {
-                digit_string.push(ch);
-            } else {
+            if !condition(ch) {
                 break;
             }
+            string.push(ch);
             self.next();
         }
-        // Try and convert into a u8, return error if it fails
-        match digit_string.parse() {
-            Ok(val) => return Some(Ok((val, digit_string))),
-            Err(_) => {
-                return Some(Err(TokenizerError::LiteralValueTooLarge(Box::new(
-                    LiteralValueTooLarge {
-                        value_string: digit_string,
-                        line: line,
-                        col: col,
-                    },
-                ))))
-            }
-        };
+        string
     }
 
-    /// Consume a series of lowercase characters, uppercase characters and underscores
-    fn consume_identifier(&mut self) -> String {
-        let mut result = String::new();
-        while let Some(&ch) = self.iter.peek() {
-            match ch {
-                'a'..='z' | 'A'..='Z' | '_' => result.push(ch),
-                _ => break,
-            }
-            self.next();
+    fn add_token(&mut self, kind: TokenKind) -> Result<(), TokenizerError> {
+        let mut lexeme = self.input[self.prev_pos.idx..self.current_pos.idx].to_string();
+        if lexeme == "\n" {
+            lexeme = String::from("\\n");
         }
-        result
-    }
-
-    /// Tokenize a token consisting of a single char (newlines, semicolons, commas)
-    fn tokenize_single_char_token(&mut self, token_type: TokenKind, char: char) {
-        let line = self.line;
-        let col = self.col;
-        self.next();
         self.tokens.push(Token {
-            kind: token_type,
-            lexeme: String::from(char),
-            line: line,
-            col: col,
-        });
-    }
-
-    /// Tokenize a memory reference
-    fn tokenize_memory_ref(&mut self) -> Result<(), TokenizerError> {
-        let line = self.line;
-        let col = self.col;
-        let (num, lexeme) = self.consume_u8().unwrap()?;
-        self.tokens.push(Token {
-            kind: TokenKind::Operand(OperandType::MemoryRef, num),
+            kind: kind,
             lexeme: lexeme,
-            line: line,
-            col: col,
+            line: self.prev_pos.line,
+            col: self.prev_pos.col,
         });
-        self.inc_program_byte_count()?;
+        // Increase the program byte count if its an operand or opcode
+        match kind {
+            TokenKind::Opcode(_) | TokenKind::Operand(_, _) => self.inc_program_byte_count()?,
+            _ => {}
+        };
+        self.prev_pos = self.current_pos.clone();
         Ok(())
     }
 
-    /// Tokenize a literal value
-    fn tokenize_literal(&mut self) -> Result<(), TokenizerError> {
-        let line = self.line;
-        let col = self.col;
-        // Move past hashtag
+    fn consume_u8(&mut self) -> Option<Result<u8, TokenizerError>> {
+        let value_string = self.consume_while(|ch| ch.is_digit(10));
+        if value_string == "" {
+            None
+        } else {
+            match value_string.parse::<u8>() {
+                Ok(value) => Some(Ok(value)),
+                Err(_) => {
+                    return Some(Err(TokenizerError::LiteralValueTooLarge(Box::new(
+                        LiteralValueTooLarge {
+                            value_string,
+                            position: self.prev_pos.clone(),
+                        },
+                    ))))
+                }
+            }
+        }
+    }
+
+    fn add_single_char_token(&mut self, kind: TokenKind) -> Result<(), TokenizerError> {
         self.next();
-        // Read number and return error if not found
-        let (num, num_lexeme) = match self.consume_u8() {
-            Some(num) => num?,
+        self.add_token(kind)
+    }
+
+    fn tokenize_memory_reference(&mut self) -> Result<(), TokenizerError> {
+        let value = self.consume_u8().unwrap()?;
+        self.add_token(TokenKind::Operand(OperandType::MemoryRef, value))
+    }
+
+    fn tokenize_literal(&mut self) -> Result<(), TokenizerError> {
+        self.next();
+        match self.consume_u8() {
+            Some(Ok(val)) => self.add_token(TokenKind::Operand(OperandType::Literal, val)),
+            Some(Err(err)) => return Err(err),
             None => {
                 return Err(TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
                     MissingNumberAfterLiteralDenoter {
-                        line: line,
-                        col: col,
+                        position: self.prev_pos.clone(),
                     },
                 )))
             }
-        };
-        self.tokens.push(Token {
-            kind: TokenKind::Operand(OperandType::Literal, num),
-            lexeme: format!("#{}", num_lexeme),
-            line: line,
-            col: col,
-        });
-        self.inc_program_byte_count()?;
-        Ok(())
+        }
     }
 
-    /// Tokenize an identifier, either:
-    /// * A register (R0-R12)
-    /// * A label operand
-    /// * An opcode
-    /// * A label definition
-    fn tokenizer_identifier(&mut self) -> Result<(), TokenizerError> {
-        let line = self.line;
-        let col = self.col;
-        let identifier = self.consume_identifier();
-        // Is it a register?
+    fn tokenize_identifier(&mut self) -> Result<(), TokenizerError> {
+        let identifier = self.consume_while(|ch| ch.is_alphabetic() || ch == '_');
+        // Register
         if identifier == "R" {
-            let (register_num, register_num_lexeme) = match self.consume_u8() {
-                Some(num) => num?,
-                None => {
-                    return Err(TokenizerError::MissingNumberAfterRegisterDenoter(Box::new(
-                        MissingNumberAfterRegisterDenoter {
-                            line: line,
-                            col: col,
-                        },
-                    )))
-                }
-            };
-            if register_num >= REGISTER_COUNT {
-                return Err(TokenizerError::InvalidRegisterNumber(Box::new(
-                    InvalidRegisterNumber {
-                        value: register_num,
-                        line: line,
-                        col: col,
-                    },
-                )));
-            }
-            self.tokens.push(Token {
-                kind: TokenKind::Operand(OperandType::Register, register_num),
-                lexeme: format!("R{}", &register_num_lexeme),
-                line: line,
-                col: col,
-            });
-            self.inc_program_byte_count()?;
-            return Ok(());
-        }
-
-        // Is it an opcode
-        if let Ok(opcode) = SourceOpcode::from_str(&identifier) {
-            self.tokens.push(Token {
-                kind: TokenKind::Opcode(opcode),
-                lexeme: identifier,
-                line: line,
-                col: col,
-            });
-            self.inc_program_byte_count()?;
-            return Ok(());
-        }
-
-        // Is it a label definition?
-        match self.iter.peek() {
-            Some(&ch) if ch == ':' => {
-                self.next();
-                // label definitions can only appear after newlines and semicolons
-                match self.tokens.last() {
-                    Some(token)
-                        if token.kind != TokenKind::Semicolon
-                            && token.kind != TokenKind::Newline =>
-                    {
-                        dbg!(token.kind);
-                        return Err(TokenizerError::InvalidLabelDefinitionLocation(Box::new(
-                            InvalidLabelDefinitionLocation {
-                                label_name: identifier,
-                                line: line,
-                                col: col,
+            return match self.consume_u8() {
+                Some(Ok(val)) => {
+                    if val >= REGISTER_COUNT {
+                        return Err(TokenizerError::InvalidRegisterNumber(Box::new(
+                            InvalidRegisterNumber {
+                                value: val,
+                                position: self.prev_pos.clone(),
                             },
                         )));
                     }
-                    _ => {}
+                    self.add_token(TokenKind::Operand(OperandType::Register, val))?;
+                    Ok(())
                 }
-                // Insert label, returning error if it already exists
-                match self.labels.insert(
-                    identifier.clone(),
-                    LabelDefinition {
-                        byte: self.program_bytes as u8,
-                        line: line,
-                        col: col,
+                Some(Err(err)) => Err(err),
+                None => Err(TokenizerError::MissingNumberAfterRegisterDenoter(Box::new(
+                    MissingNumberAfterRegisterDenoter {
+                        position: self.prev_pos.clone(),
                     },
-                ) {
-                    Some(_) => {
-                        return Err(TokenizerError::DuplicateLabelDefinition(Box::new(
-                            DuplicateLabelDefinition {
-                                label_name: identifier,
-                                line: line,
-                                col: col,
-                            },
-                        )))
-                    }
-                    None => {}
-                };
-                return Ok(());
-            }
-            _ => {}
+                ))),
+            };
         }
+        // Is it an opcode?
+        if let Ok(source_opcode) = SourceOpcode::from_str(&identifier) {
+            self.add_token(TokenKind::Opcode(source_opcode))?;
+            return Ok(())
+        }
+        // Is it a label definition? (i.e a ':' follows it)
+        if let Some(':') = self.iter.peek() {
+            // Check the previous token added
+            match self.tokens.last() {
+                // Allowed: Some(token) if the token is a Newline or Semicolon, or if it's None
+                Some(token)
+                    if token.kind == TokenKind::Newline || token.kind == TokenKind::Semicolon => {}
+                None => {}
+                // Not allowed: anything else
+                _ => {
+                    return Err(TokenizerError::InvalidLabelDefinitionLocation(Box::new(
+                        InvalidLabelDefinitionLocation {
+                            label_name: identifier,
+                            position: self.prev_pos.clone(),
+                        },
+                    )))
+                }
+            }
 
-        // It must be a label operand
-        self.tokens.push(Token {
-            kind: TokenKind::Operand(OperandType::Label, 0),
-            lexeme: identifier,
-            line: line,
-            col: col,
-        });
-        self.inc_program_byte_count()?;
+            // Is label already present? Return error if so
+            if self.labels.get(&identifier).is_some() {
+                return Err(TokenizerError::DuplicateLabelDefinition(Box::new(
+                    DuplicateLabelDefinition {
+                        label_name: identifier,
+                        position: self.prev_pos.clone(),
+                    },
+                )));
+            }
+            // We can insert it as it was not already present
+            self.labels.insert(
+                identifier,
+                LabelDefinition {
+                    byte: self.program_bytes as u8,
+                    line: self.prev_pos.line,
+                    col: self.prev_pos.col,
+                },
+            );
+            // Move past the ';'
+            self.next();
+            return Ok(());
+        }
+        // It's a label operand
+        self.add_token(TokenKind::Operand(OperandType::Label, 0))?;
         Ok(())
     }
 
-    /// Skip past sections of comments
     fn comment(&mut self) -> Result<(), TokenizerError> {
-        let line = self.line;
-        let col = self.col;
-        self.next();
+        self.next(); 
         match self.iter.peek() {
-            // Single line comment - consume until we hit a newline
+            // Comments starts with // therefore its a line comment
             Some('/') => {
                 self.next();
                 while let Some(&ch) = self.iter.peek() {
@@ -367,50 +312,32 @@ impl<'a> Tokenizer<'a> {
                         self.next();
                     }
                 }
-            }
+            },
+            // Comment starts with a /* so its multiline
             Some('*') => loop {
-                if let Some(ch) = self.next() {
-                    if ch == '*' {
-                        if let Some(&next) = self.iter.peek() {
-                            if next == '/' {
-                                self.next();
-                                break;
-                            }
-                        } else {
-                            return Err(TokenizerError::UnterminatedBlockComment(Box::new(
-                                UnterminatedBlockComment {
-                                    line: line,
-                                    col: col,
-                                },
-                            )));
+                match self.next() {
+                    Some(ch) if ch == '*' => {
+                        if self.iter.peek() == Some(&'/') {
+                            self.next(); // Consume the '/'
+                            break; // Exit the loop
                         }
-                    }
-                } else {
-                    return Err(TokenizerError::UnterminatedBlockComment(Box::new(
-                        UnterminatedBlockComment {
-                            line: line,
-                            col: col,
-                        },
-                    )));
+                    },
+                    Some(_) => continue, // Continue if it's not '*'
+                    None => return Err(TokenizerError::UnterminatedBlockComment(Box::new(
+                        UnterminatedBlockComment { position: self.prev_pos.clone() },
+                    ))),
                 }
             },
-            _ => {
-                return Err(TokenizerError::InvalidCommentDenoter(Box::new(
-                    InvalidCommentDenoter {
-                        line: line,
-                        col: col,
-                    },
-                )))
-            }
+            // A single / by itself is dumb, lets tell the user off
+            _ => return Err(TokenizerError::InvalidCommentDenoter(Box::new(InvalidCommentDenoter { position: self.prev_pos.clone() })))
         }
+        self.prev_pos = self.current_pos.clone();
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::runtime_opcode::RuntimeOpcode;
-
     use super::*;
 
     /// Given a Vec<Token> return a Vec<TokenType> (the token type for each token)
@@ -430,16 +357,6 @@ mod tests {
     fn test_token_type_sequence(input: &str, expected: &[TokenKind]) {
         let token_types = extract_token_types(Tokenizer::tokenize(input, 4).unwrap().tokens);
         assert_eq!(token_types, expected);
-    }
-
-    // Assert tokenizer produces specific error type
-    macro_rules! assert_tokenizer_error {
-        ($input:expr, $expected_error:pat) => {
-            assert!(matches!(
-                Tokenizer::tokenize($input, 4),
-                Err($expected_error)
-            ));
-        };
     }
 
     #[test]
@@ -474,92 +391,6 @@ mod tests {
             ),
         ] {
             assert_eq!(input.get_token_debug_repr(), expected);
-        }
-    }
-
-    #[test]
-    fn test_assembly_opcode_from_str() {
-        for (input, expected) in [
-            // Ensure all
-            ("NOP", Ok(SourceOpcode::NOP)),
-            ("LDR", Ok(SourceOpcode::LDR)),
-            ("STR", Ok(SourceOpcode::STR)),
-            ("ADD", Ok(SourceOpcode::ADD)),
-            ("SUB", Ok(SourceOpcode::SUB)),
-            ("MOV", Ok(SourceOpcode::MOV)),
-            ("CMP", Ok(SourceOpcode::CMP)),
-            ("B", Ok(SourceOpcode::B)),
-            ("BEQ", Ok(SourceOpcode::BEQ)),
-            ("BNE", Ok(SourceOpcode::BNE)),
-            ("BGT", Ok(SourceOpcode::BGT)),
-            ("BLT", Ok(SourceOpcode::BLT)),
-            ("AND", Ok(SourceOpcode::AND)),
-            ("ORR", Ok(SourceOpcode::ORR)),
-            ("EOR", Ok(SourceOpcode::EOR)),
-            ("MVN", Ok(SourceOpcode::MVN)),
-            ("LSL", Ok(SourceOpcode::LSL)),
-            ("LSR", Ok(SourceOpcode::LSR)),
-            ("HALT", Ok(SourceOpcode::HALT)),
-            ("PRINT", Ok(SourceOpcode::PRINT)),
-            ("INPUT", Ok(SourceOpcode::INPUT)),
-            // lowercase commands shouldn't work
-            ("nop", Err(())),
-            ("input", Err(())),
-            // whitespace should be important
-            ("A N D", Err(())),
-            ("AND  ", Err(())),
-            ("  AND", Err(())),
-            ("  AND  ", Err(())),
-            // random words shouldn't work
-            ("foo", Err(())),
-            ("bar", Err(())),
-        ] {
-            assert_eq!(SourceOpcode::from_str(input), expected);
-        }
-    }
-
-    #[test]
-    fn test_binary_opcode_from_u8() {
-        for (input, expected) in [
-            (0, Ok(RuntimeOpcode::NOP)),
-            (1, Ok(RuntimeOpcode::LDR)),
-            (2, Ok(RuntimeOpcode::STR)),
-            (3, Ok(RuntimeOpcode::ADD_REGISTER)),
-            (4, Ok(RuntimeOpcode::ADD_LITERAL)),
-            (5, Ok(RuntimeOpcode::SUB_REGISTER)),
-            (6, Ok(RuntimeOpcode::SUB_LITERAL)),
-            (7, Ok(RuntimeOpcode::MOV_REGISTER)),
-            (8, Ok(RuntimeOpcode::MOV_LITERAL)),
-            (9, Ok(RuntimeOpcode::CMP_REGISTER)),
-            (10, Ok(RuntimeOpcode::CMP_LITERAL)),
-            (11, Ok(RuntimeOpcode::B)),
-            (12, Ok(RuntimeOpcode::BEQ)),
-            (13, Ok(RuntimeOpcode::BNE)),
-            (14, Ok(RuntimeOpcode::BGT)),
-            (15, Ok(RuntimeOpcode::BLT)),
-            (16, Ok(RuntimeOpcode::AND_REGISTER)),
-            (17, Ok(RuntimeOpcode::AND_LITERAL)),
-            (18, Ok(RuntimeOpcode::ORR_REGISTER)),
-            (19, Ok(RuntimeOpcode::ORR_LITERAL)),
-            (20, Ok(RuntimeOpcode::EOR_REGISTER)),
-            (21, Ok(RuntimeOpcode::EOR_LITERAL)),
-            (22, Ok(RuntimeOpcode::MVN_REGISTER)),
-            (23, Ok(RuntimeOpcode::MVN_LITERAL)),
-            (24, Ok(RuntimeOpcode::LSL_REGISTER)),
-            (25, Ok(RuntimeOpcode::LSL_LITERAL)),
-            (26, Ok(RuntimeOpcode::LSR_REGISTER)),
-            (27, Ok(RuntimeOpcode::LSR_LITERAL)),
-            (28, Ok(RuntimeOpcode::PRINT_REGISTER)),
-            (29, Ok(RuntimeOpcode::PRINT_MEMORY)),
-            (30, Ok(RuntimeOpcode::INPUT_REGISTER)),
-            (31, Ok(RuntimeOpcode::INPUT_MEMORY)),
-            (32, Ok(RuntimeOpcode::HALT)),
-        ] {
-            assert_eq!(RuntimeOpcode::try_from(input), expected);
-        }
-
-        for input in 33..=255 {
-            assert_eq!(RuntimeOpcode::try_from(input), Err(()));
         }
     }
 
@@ -634,81 +465,183 @@ mod tests {
 
     #[test]
     fn test_missing_register_number() {
-        assert_tokenizer_error!(
-            "MOV R #23",
-            TokenizerError::MissingNumberAfterRegisterDenoter { .. }
+        assert_eq!(
+            Tokenizer::tokenize("MOV R #23", 4).unwrap_err(),
+            TokenizerError::MissingNumberAfterRegisterDenoter(Box::new(
+                MissingNumberAfterRegisterDenoter {
+                    position: TokenPosition {
+                        idx: 4,
+                        line: 1,
+                        col: 5
+                    }
+                }
+            ))
         );
     }
 
     #[test]
     fn test_missing_literal_number() {
-        assert_tokenizer_error!(
-            "MOV R5 #",
-            TokenizerError::MissingNumberAfterLiteralDenoter { .. }
+        assert_eq!(
+            Tokenizer::tokenize("MOV R5 #", 4).unwrap_err(),
+            TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
+                MissingNumberAfterLiteralDenoter {
+                    position: TokenPosition {
+                        idx: 7,
+                        line: 1,
+                        col: 8
+                    }
+                }
+            ))
         );
     }
 
     #[test]
     fn test_unterminated_block_comment() {
         // No ending delimeter (*/)
-        assert_tokenizer_error!(
-            "MOV R5 #23 /* this is an unterminated block comment",
-            TokenizerError::UnterminatedBlockComment { .. }
+        assert_eq!(
+            Tokenizer::tokenize("MOV R5 #23 /* this is an unterminated block comment", 4)
+                .unwrap_err(),
+            TokenizerError::UnterminatedBlockComment(Box::new(UnterminatedBlockComment {
+                position: TokenPosition {
+                    idx: 11,
+                    line: 1,
+                    col: 12
+                }
+            }))
         );
         // Half an ending delimeter
-        assert_tokenizer_error!(
-            "MOV R5 #23 /* this is an unterminated block comment*",
-            TokenizerError::UnterminatedBlockComment { .. }
+        assert_eq!(
+            Tokenizer::tokenize("MOV R5 #23 /* this is an unterminated block comment*", 4)
+                .unwrap_err(),
+            TokenizerError::UnterminatedBlockComment(Box::new(UnterminatedBlockComment {
+                position: TokenPosition {
+                    idx: 11,
+                    line: 1,
+                    col: 12
+                }
+            }))
         );
     }
 
     #[test]
     fn test_invalid_comment_denoter() {
-        assert_tokenizer_error!("/", TokenizerError::InvalidCommentDenoter { .. });
+        assert_eq!(
+            Tokenizer::tokenize("/", 4).unwrap_err(),
+            TokenizerError::InvalidCommentDenoter(Box::new(InvalidCommentDenoter {
+                position: TokenPosition {
+                    idx: 0,
+                    line: 1,
+                    col: 1
+                }
+            }))
+        );
     }
 
     #[test]
     fn test_duplicate_label_definitions() {
-        assert_tokenizer_error!(
-            "label:
-        NOP
-        label:
-        NOP",
-            TokenizerError::DuplicateLabelDefinition { .. }
+        assert_eq!(
+            Tokenizer::tokenize(
+                "label:
+NOP
+label:
+NOP",
+                4
+            )
+            .unwrap_err(),
+            TokenizerError::DuplicateLabelDefinition(Box::new(DuplicateLabelDefinition {
+                label_name: String::from("label"),
+                position: TokenPosition {
+                    idx: 11,
+                    line: 3,
+                    col: 1
+                }
+            }))
         );
     }
 
     #[test]
     fn test_invalid_register_number() {
-        assert_tokenizer_error!("R13", TokenizerError::InvalidRegisterNumber { .. });
+        assert_eq!(
+            Tokenizer::tokenize("R13", 4).unwrap_err(),
+            TokenizerError::InvalidRegisterNumber(Box::new(InvalidRegisterNumber {
+                value: 13,
+                position: TokenPosition {
+                    idx: 0,
+                    line: 1,
+                    col: 1
+                }
+            }))
+        );
     }
 
     #[test]
     fn test_too_large_program() {
-        assert_tokenizer_error!(&"NOP;".repeat(257), TokenizerError::ProgramTooLarge { .. });
+        assert_eq!(
+            Tokenizer::tokenize(&"NOP;".repeat(257), 4).unwrap_err(),
+            TokenizerError::ProgramTooLarge(Box::new(ProgramTooLarge { line: 1, col: 1025 }))
+        );
     }
 
     #[test]
     fn test_label_definition_not_after_line_delimeters() {
-        assert_tokenizer_error!(
-            "NOP label:",
-            TokenizerError::InvalidLabelDefinitionLocation { .. }
+        assert_eq!(
+            Tokenizer::tokenize("NOP label:", 4).unwrap_err(),
+            TokenizerError::InvalidLabelDefinitionLocation(Box::new(
+                InvalidLabelDefinitionLocation {
+                    label_name: String::from("label"),
+                    position: TokenPosition {
+                        idx: 4,
+                        line: 1,
+                        col: 5
+                    }
+                }
+            ))
         );
     }
 
     #[test]
     fn test_memory_reference_too_large() {
-        assert_tokenizer_error!("256", TokenizerError::LiteralValueTooLarge { .. });
+        assert_eq!(
+            Tokenizer::tokenize("256", 4).unwrap_err(),
+            TokenizerError::LiteralValueTooLarge(Box::new(LiteralValueTooLarge {
+                value_string: String::from("256"),
+                position: TokenPosition {
+                    idx: 0,
+                    line: 1,
+                    col: 1
+                }
+            }))
+        );
     }
 
     #[test]
     fn test_literal_value_too_large() {
-        assert_tokenizer_error!("#256", TokenizerError::LiteralValueTooLarge { .. });
+        assert_eq!(
+            Tokenizer::tokenize("#256", 4).unwrap_err(),
+            TokenizerError::LiteralValueTooLarge(Box::new(LiteralValueTooLarge {
+                value_string: String::from("256"),
+                position: TokenPosition {
+                    idx: 0,
+                    line: 1,
+                    col: 1
+                }
+            }))
+        );
     }
 
     #[test]
     fn test_invalid_characters() {
-        assert_tokenizer_error!("NOP; label: ??", TokenizerError::UnexpectedCharacter { .. });
+        assert_eq!(
+            Tokenizer::tokenize("NOP; label: ??", 4).unwrap_err(),
+            TokenizerError::UnexpectedCharacter(Box::new(UnexpectedCharacter {
+                char: '?',
+                position: TokenPosition {
+                    idx: 12,
+                    line: 1,
+                    col: 13
+                }
+            }))
+        )
     }
 
     #[rustfmt::skip]

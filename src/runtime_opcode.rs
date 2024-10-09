@@ -1,9 +1,9 @@
 /// Runtime opcodes are the opcodes actually interpreted by the interpreter.
-/// These are different to source opcodes as each source opcode can be mapped to 
-/// multiple different instructions based on the combination of its arguments.
-/// For example:
-/// MOV R5, R5 => MOV_REGISTER 5 5
-/// MOP R5, #5 => MOV_LITERAL 5 5
+/// These are different to source opcodes as each source opcode can be mapped to
+/// multiple different instructions based on the combination of its arguments.    
+/// For example:    
+/// MOV R5, R5 => MOV_REGISTER 5 5    
+/// MOP R5, #5 => MOV_LITERAL 5 5    
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RuntimeOpcode {
@@ -81,6 +81,56 @@ impl TryFrom<u8> for RuntimeOpcode {
             x if x == RuntimeOpcode::INPUT_MEMORY as u8 => Ok(RuntimeOpcode::INPUT_MEMORY),
             x if x == RuntimeOpcode::HALT as u8 => Ok(RuntimeOpcode::HALT),
             _ => Err(()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RuntimeOpcode;
+
+    #[test]
+    fn test_runtime_opcode_from_u8() {
+        for (input, expected) in [
+            (0, Ok(RuntimeOpcode::NOP)),
+            (1, Ok(RuntimeOpcode::LDR)),
+            (2, Ok(RuntimeOpcode::STR)),
+            (3, Ok(RuntimeOpcode::ADD_REGISTER)),
+            (4, Ok(RuntimeOpcode::ADD_LITERAL)),
+            (5, Ok(RuntimeOpcode::SUB_REGISTER)),
+            (6, Ok(RuntimeOpcode::SUB_LITERAL)),
+            (7, Ok(RuntimeOpcode::MOV_REGISTER)),
+            (8, Ok(RuntimeOpcode::MOV_LITERAL)),
+            (9, Ok(RuntimeOpcode::CMP_REGISTER)),
+            (10, Ok(RuntimeOpcode::CMP_LITERAL)),
+            (11, Ok(RuntimeOpcode::B)),
+            (12, Ok(RuntimeOpcode::BEQ)),
+            (13, Ok(RuntimeOpcode::BNE)),
+            (14, Ok(RuntimeOpcode::BGT)),
+            (15, Ok(RuntimeOpcode::BLT)),
+            (16, Ok(RuntimeOpcode::AND_REGISTER)),
+            (17, Ok(RuntimeOpcode::AND_LITERAL)),
+            (18, Ok(RuntimeOpcode::ORR_REGISTER)),
+            (19, Ok(RuntimeOpcode::ORR_LITERAL)),
+            (20, Ok(RuntimeOpcode::EOR_REGISTER)),
+            (21, Ok(RuntimeOpcode::EOR_LITERAL)),
+            (22, Ok(RuntimeOpcode::MVN_REGISTER)),
+            (23, Ok(RuntimeOpcode::MVN_LITERAL)),
+            (24, Ok(RuntimeOpcode::LSL_REGISTER)),
+            (25, Ok(RuntimeOpcode::LSL_LITERAL)),
+            (26, Ok(RuntimeOpcode::LSR_REGISTER)),
+            (27, Ok(RuntimeOpcode::LSR_LITERAL)),
+            (28, Ok(RuntimeOpcode::PRINT_REGISTER)),
+            (29, Ok(RuntimeOpcode::PRINT_MEMORY)),
+            (30, Ok(RuntimeOpcode::INPUT_REGISTER)),
+            (31, Ok(RuntimeOpcode::INPUT_MEMORY)),
+            (32, Ok(RuntimeOpcode::HALT)),
+        ] {
+            assert_eq!(RuntimeOpcode::try_from(input), expected);
+        }
+
+        for input in 33..=255 {
+            assert_eq!(RuntimeOpcode::try_from(input), Err(()));
         }
     }
 }

@@ -1,7 +1,7 @@
+use super::OperandType;
+use crate::runtime_opcode::RuntimeOpcode;
 use std::str::FromStr;
 use strum::EnumIter;
-use crate::runtime_opcode::RuntimeOpcode;
-use super::OperandType;
 
 /// Source opcodes are the opcode literals found in source files
 #[allow(non_camel_case_types)]
@@ -244,4 +244,53 @@ impl FromStr for SourceOpcode {
             _ => Err(()),
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::SourceOpcode;
+
+    #[test]
+    fn test_source_opcode_from_str() {
+        for (input, expected) in [
+            // Ensure all source opcodes convert from string
+            ("NOP", Ok(SourceOpcode::NOP)),
+            ("LDR", Ok(SourceOpcode::LDR)),
+            ("STR", Ok(SourceOpcode::STR)),
+            ("ADD", Ok(SourceOpcode::ADD)),
+            ("SUB", Ok(SourceOpcode::SUB)),
+            ("MOV", Ok(SourceOpcode::MOV)),
+            ("CMP", Ok(SourceOpcode::CMP)),
+            ("B", Ok(SourceOpcode::B)),
+            ("BEQ", Ok(SourceOpcode::BEQ)),
+            ("BNE", Ok(SourceOpcode::BNE)),
+            ("BGT", Ok(SourceOpcode::BGT)),
+            ("BLT", Ok(SourceOpcode::BLT)),
+            ("AND", Ok(SourceOpcode::AND)),
+            ("ORR", Ok(SourceOpcode::ORR)),
+            ("EOR", Ok(SourceOpcode::EOR)),
+            ("MVN", Ok(SourceOpcode::MVN)),
+            ("LSL", Ok(SourceOpcode::LSL)),
+            ("LSR", Ok(SourceOpcode::LSR)),
+            ("HALT", Ok(SourceOpcode::HALT)),
+            ("PRINT", Ok(SourceOpcode::PRINT)),
+            ("INPUT", Ok(SourceOpcode::INPUT)),
+            // lowercase commands shouldn't work
+            ("nop", Err(())),
+            ("input", Err(())),
+            // whitespace should be important
+            ("A N D", Err(())),
+            ("AND  ", Err(())),
+            ("  AND", Err(())),
+            ("  AND  ", Err(())),
+            // random words shouldn't work
+            ("foo", Err(())),
+            ("bar", Err(())),
+        ] {
+            assert_eq!(SourceOpcode::from_str(input), expected);
+        }
+    }
+
 }
