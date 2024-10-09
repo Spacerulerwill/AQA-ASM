@@ -1,30 +1,18 @@
-use crate::tokenizer::{AssemblyOpcode, LabelDefinition, OperandType, Token, TokenKind};
+use crate::{
+    source_opcode,
+    tokenizer::{LabelDefinition, OperandType, Token, TokenKind},
+};
+use source_opcode::SourceOpcode;
 use std::{
     collections::HashMap,
     iter::Peekable,
     slice::{Iter, IterMut},
 };
 
-#[derive(Debug)]
-pub enum ParserError {
-    ExpectedLineDelimeter {
-        got: Token,
-    },
-    ExpectedOpcode {
-        got: Token,
-    },
-    UnexpectedToken {
-        expected: TokenKind,
-        got: Token,
-    },
-    ExpectedOperand {
-        expected: Vec<OperandType>,
-        got: Token,
-    },
-    InvalidLabel {
-        token: Token,
-    },
-}
+use super::{
+    ExpectedLineDelimeter, ExpectedOpcode, ExpectedOperand, InvalidLabel, ParserError,
+    UnexpectedToken,
+};
 
 #[derive(Debug)]
 pub struct Parser<'a> {
@@ -77,7 +65,11 @@ impl<'a> Parser<'a> {
                     self.consume_line_delimeter()?;
                 }
                 TokenKind::Newline | TokenKind::Semicolon => {}
-                _ => return Err(ParserError::ExpectedOpcode { got: token.clone() }),
+                _ => {
+                    return Err(ParserError::ExpectedOpcode(Box::new(ExpectedOpcode {
+                        got: token.clone(),
+                    })))
+                }
             }
         }
         Ok(())
@@ -90,10 +82,10 @@ impl<'a> Parser<'a> {
             self.token_iter.next();
             Ok(())
         } else {
-            Err(ParserError::UnexpectedToken {
+            Err(ParserError::UnexpectedToken(Box::new(UnexpectedToken {
                 expected: token_type,
                 got: (*token).clone(),
-            })
+            })))
         }
     }
 
@@ -103,9 +95,11 @@ impl<'a> Parser<'a> {
         match token.kind {
             TokenKind::Newline | TokenKind::Semicolon => return Ok(()),
             _ => {
-                return Err(ParserError::ExpectedLineDelimeter {
-                    got: (*token).clone(),
-                })
+                return Err(ParserError::ExpectedLineDelimeter(Box::new(
+                    ExpectedLineDelimeter {
+                        got: (*token).clone(),
+                    },
+                )))
             }
         }
     }
@@ -120,9 +114,9 @@ impl<'a> Parser<'a> {
                     self.token_iter.next();
                     Ok(val.byte)
                 } else {
-                    Err(ParserError::InvalidLabel {
+                    Err(ParserError::InvalidLabel(Box::new(InvalidLabel {
                         token: (*token).clone(),
-                    })
+                    })))
                 }
             }
             // Consuming other operands - just check equal type
@@ -130,10 +124,10 @@ impl<'a> Parser<'a> {
                 self.token_iter.next();
                 Ok(*val)
             }
-            _ => Err(ParserError::ExpectedOperand {
+            _ => Err(ParserError::ExpectedOperand(Box::new(ExpectedOperand {
                 expected: vec![expected_operand],
                 got: (*token).clone(),
-            }),
+            }))),
         }
     }
 
@@ -142,7 +136,7 @@ impl<'a> Parser<'a> {
         *current = val;
     }
 
-    fn parse_opcode(&mut self, assembly_opcode: AssemblyOpcode) -> Result<(), ParserError> {
+    fn parse_opcode(&mut self, assembly_opcode: SourceOpcode) -> Result<(), ParserError> {
         let operand_formats = assembly_opcode.got_operand_formats();
         let mut opcode_bytes = Vec::new();
         let mut operand_idx = 0;
@@ -162,8 +156,8 @@ impl<'a> Parser<'a> {
                         opcode_bytes.push(val);
                         operand_idx += 1;
                     }
-                    Err(ParserError::InvalidLabel { token }) => {
-                        return Err(ParserError::InvalidLabel { token });
+                    Err(ParserError::InvalidLabel(err)) => {
+                        return Err(ParserError::InvalidLabel(err));
                     }
                     Err(_) => {
                         /*
@@ -196,10 +190,10 @@ impl<'a> Parser<'a> {
             .iter()
             .map(|(_, operands)| operands.get(operand_idx).expect("This will only fail if an opcode has multiple operand patterns with different lengths!").clone())
             .collect();
-        return Err(ParserError::ExpectedOperand {
+        return Err(ParserError::ExpectedOperand(Box::new(ExpectedOperand {
             expected: potential_operands,
             got: (*self.token_iter.peek().unwrap()).clone(),
-        });
+        })));
     }
 }
 
@@ -211,19 +205,19 @@ mod tests {
 
     fn create_tokens_from_token_type(token_types: &[TokenKind]) -> Vec<Token> {
         token_types
-        .into_iter()
-        .map(|&ty| Token {
-            kind: ty,
-            lexeme: String::new(),
-            line: 0,
-            col: 0,
-        })
-        .collect()
+            .into_iter()
+            .map(|&ty| Token {
+                kind: ty,
+                lexeme: String::new(),
+                line: 0,
+                col: 0,
+            })
+            .collect()
     }
 
     #[test]
     fn test_all_valid_instructions() {
-        for assembly_opcode in AssemblyOpcode::iter() {
+        for assembly_opcode in SourceOpcode::iter() {
             let operand_formats = assembly_opcode.got_operand_formats();
             for (binary_opcode, operands) in operand_formats {
                 // Create input
@@ -267,56 +261,65 @@ mod tests {
     #[test]
     fn test_missing_line_delimeter() {
         let program = &[
-            TokenKind::Opcode(AssemblyOpcode::ADD),
+            TokenKind::Opcode(SourceOpcode::ADD),
             TokenKind::Operand(OperandType::Register, 0),
             TokenKind::Comma,
             TokenKind::Operand(OperandType::Register, 0),
             TokenKind::Comma,
             TokenKind::Operand(OperandType::Literal, 0),
-            TokenKind::EOF
+            TokenKind::EOF,
         ];
         let tokens = create_tokens_from_token_type(program);
-        assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::ExpectedLineDelimeter { .. })));
+        assert!(matches!(
+            Parser::parse(&tokens, &HashMap::new()),
+            Err(ParserError::ExpectedLineDelimeter { .. })
+        ));
     }
 
     #[test]
     fn test_expected_opcode() {
-        let program = &[
-            TokenKind::Operand(OperandType::Register, 0),
-        ];
+        let program = &[TokenKind::Operand(OperandType::Register, 0)];
         let tokens = create_tokens_from_token_type(program);
-        assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::ExpectedOpcode { .. })));
+        assert!(matches!(
+            Parser::parse(&tokens, &HashMap::new()),
+            Err(ParserError::ExpectedOpcode { .. })
+        ));
     }
 
     #[test]
     fn test_unexpected_token() {
         let program = &[
-            TokenKind::Opcode(AssemblyOpcode::ADD),
+            TokenKind::Opcode(SourceOpcode::ADD),
             TokenKind::Operand(OperandType::Register, 0),
             TokenKind::Semicolon,
-
         ];
         let tokens = create_tokens_from_token_type(program);
-        assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::UnexpectedToken { .. })));
+        assert!(matches!(
+            Parser::parse(&tokens, &HashMap::new()),
+            Err(ParserError::UnexpectedToken { .. })
+        ));
     }
 
     #[test]
     fn test_expected_operand() {
-        let program = &[
-            TokenKind::Opcode(AssemblyOpcode::ADD),
-            TokenKind::Comma,
-        ];
+        let program = &[TokenKind::Opcode(SourceOpcode::ADD), TokenKind::Comma];
         let tokens = create_tokens_from_token_type(program);
-        assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::ExpectedOperand { .. })));
+        assert!(matches!(
+            Parser::parse(&tokens, &HashMap::new()),
+            Err(ParserError::ExpectedOperand { .. })
+        ));
     }
 
     #[test]
     fn test_invalid_label() {
         let program = &[
-            TokenKind::Opcode(AssemblyOpcode::B),
+            TokenKind::Opcode(SourceOpcode::B),
             TokenKind::Operand(OperandType::Label, 0),
         ];
         let tokens = create_tokens_from_token_type(program);
-        assert!(matches!(Parser::parse(&tokens, &HashMap::new()), Err(ParserError::InvalidLabel { .. })));
+        assert!(matches!(
+            Parser::parse(&tokens, &HashMap::new()),
+            Err(ParserError::InvalidLabel { .. })
+        ));
     }
 }

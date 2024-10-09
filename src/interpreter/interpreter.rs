@@ -1,15 +1,10 @@
-use crate::tokenizer::BinaryOpcode;
+use crate::runtime_opcode::RuntimeOpcode;
 use std::io;
+
+use super::RuntimeError;
 
 // We get a predefined amount of registers allocated
 pub const REGISTER_COUNT: u8 = 13;
-
-#[derive(Debug)]
-pub enum RuntimeError {
-    ReadPastMemory,
-    OutOfBoundsRead(usize),
-    OutOfBoundsWrite(usize),
-}
 
 #[derive(Debug)]
 pub struct Interpreter<'a> {
@@ -44,7 +39,7 @@ impl<'a> Interpreter<'a> {
         loop {
             let instruction = self.read_next_memory_address()?;
 
-            let opcode: BinaryOpcode = match instruction.try_into() {
+            let opcode: RuntimeOpcode = match instruction.try_into() {
                 Ok(opcode) => opcode,
                 Err(_) => panic!(
                     "Invalid opcode found while running program, please report as bug to author!"
@@ -52,39 +47,39 @@ impl<'a> Interpreter<'a> {
             };
 
             match opcode {
-                BinaryOpcode::NOP => {}
-                BinaryOpcode::LDR => self.interpret_ldr()?,
-                BinaryOpcode::STR => self.interpret_str()?,
-                BinaryOpcode::ADD_REGISTER => self.interpret_add_register()?,
-                BinaryOpcode::ADD_LITERAL => self.interpret_add_literal()?,
-                BinaryOpcode::SUB_REGISTER => self.interpret_sub_register()?,
-                BinaryOpcode::SUB_LITERAL => self.interpret_sub_literal()?,
-                BinaryOpcode::MOV_REGISTER => self.interpret_mov_register()?,
-                BinaryOpcode::MOV_LITERAL => self.interpret_mov_literal()?,
-                BinaryOpcode::CMP_REGISTER => self.interpret_cmp_register()?,
-                BinaryOpcode::CMP_LITERAL => self.interpret_cmp_literal()?,
-                BinaryOpcode::B => self.interpret_b()?,
-                BinaryOpcode::BEQ => self.interpret_beq()?,
-                BinaryOpcode::BNE => self.interpret_bne()?,
-                BinaryOpcode::BGT => self.interpret_bgt()?,
-                BinaryOpcode::BLT => self.interpret_blt()?,
-                BinaryOpcode::AND_REGISTER => self.interpret_and_register()?,
-                BinaryOpcode::AND_LITERAL => self.interpret_and_literal()?,
-                BinaryOpcode::ORR_REGISTER => self.interpret_orr_register()?,
-                BinaryOpcode::ORR_LITERAL => self.interpret_orr_literal()?,
-                BinaryOpcode::EOR_REGISTER => self.interpret_eor_register()?,
-                BinaryOpcode::EOR_LITERAL => self.interpret_eor_literal()?,
-                BinaryOpcode::MVN_REGISTER => self.interpret_mvn_register()?,
-                BinaryOpcode::MVN_LITERAL => self.interpret_mvn_literal()?,
-                BinaryOpcode::LSL_REGISTER => self.interpret_lsl_register()?,
-                BinaryOpcode::LSL_LITERAL => self.interpret_lsl_literal()?,
-                BinaryOpcode::LSR_REGISTER => self.interpret_lsr_register()?,
-                BinaryOpcode::LSR_LITERAL => self.interpret_lsr_literal()?,
-                BinaryOpcode::PRINT_REGISTER => self.interpret_print_register()?,
-                BinaryOpcode::PRINT_MEMORY => self.interpret_print_memory()?,
-                BinaryOpcode::INPUT_REGISTER => self.interpret_input_register()?,
-                BinaryOpcode::INPUT_MEMORY => self.interpret_input_memory()?,
-                BinaryOpcode::HALT => break,
+                RuntimeOpcode::NOP => {}
+                RuntimeOpcode::LDR => self.interpret_ldr()?,
+                RuntimeOpcode::STR => self.interpret_str()?,
+                RuntimeOpcode::ADD_REGISTER => self.interpret_add_register()?,
+                RuntimeOpcode::ADD_LITERAL => self.interpret_add_literal()?,
+                RuntimeOpcode::SUB_REGISTER => self.interpret_sub_register()?,
+                RuntimeOpcode::SUB_LITERAL => self.interpret_sub_literal()?,
+                RuntimeOpcode::MOV_REGISTER => self.interpret_mov_register()?,
+                RuntimeOpcode::MOV_LITERAL => self.interpret_mov_literal()?,
+                RuntimeOpcode::CMP_REGISTER => self.interpret_cmp_register()?,
+                RuntimeOpcode::CMP_LITERAL => self.interpret_cmp_literal()?,
+                RuntimeOpcode::B => self.interpret_b()?,
+                RuntimeOpcode::BEQ => self.interpret_beq()?,
+                RuntimeOpcode::BNE => self.interpret_bne()?,
+                RuntimeOpcode::BGT => self.interpret_bgt()?,
+                RuntimeOpcode::BLT => self.interpret_blt()?,
+                RuntimeOpcode::AND_REGISTER => self.interpret_and_register()?,
+                RuntimeOpcode::AND_LITERAL => self.interpret_and_literal()?,
+                RuntimeOpcode::ORR_REGISTER => self.interpret_orr_register()?,
+                RuntimeOpcode::ORR_LITERAL => self.interpret_orr_literal()?,
+                RuntimeOpcode::EOR_REGISTER => self.interpret_eor_register()?,
+                RuntimeOpcode::EOR_LITERAL => self.interpret_eor_literal()?,
+                RuntimeOpcode::MVN_REGISTER => self.interpret_mvn_register()?,
+                RuntimeOpcode::MVN_LITERAL => self.interpret_mvn_literal()?,
+                RuntimeOpcode::LSL_REGISTER => self.interpret_lsl_register()?,
+                RuntimeOpcode::LSL_LITERAL => self.interpret_lsl_literal()?,
+                RuntimeOpcode::LSR_REGISTER => self.interpret_lsr_register()?,
+                RuntimeOpcode::LSR_LITERAL => self.interpret_lsr_literal()?,
+                RuntimeOpcode::PRINT_REGISTER => self.interpret_print_register()?,
+                RuntimeOpcode::PRINT_MEMORY => self.interpret_print_memory()?,
+                RuntimeOpcode::INPUT_REGISTER => self.interpret_input_register()?,
+                RuntimeOpcode::INPUT_MEMORY => self.interpret_input_memory()?,
+                RuntimeOpcode::HALT => break,
             }
         }
         Ok(())
@@ -387,7 +382,7 @@ mod tests {
 
     #[test]
     fn test_nop() {
-        let program = [BinaryOpcode::NOP as u8, BinaryOpcode::HALT as u8];
+        let program = [RuntimeOpcode::NOP as u8, RuntimeOpcode::HALT as u8];
         let mut memory = load_test_program(&program);
         let memory_copy = memory.clone();
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -399,7 +394,7 @@ mod tests {
 
     #[test]
     fn test_ldr() {
-        let program = [BinaryOpcode::LDR as u8, 0, 0, BinaryOpcode::HALT as u8, 5];
+        let program = [RuntimeOpcode::LDR as u8, 0, 0, RuntimeOpcode::HALT as u8, 5];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         Interpreter::interpret(&mut memory, &mut registers, program.len() - 1).unwrap();
@@ -408,7 +403,7 @@ mod tests {
 
     #[test]
     fn test_str() {
-        let program = [BinaryOpcode::STR as u8, 0, 0, BinaryOpcode::HALT as u8];
+        let program = [RuntimeOpcode::STR as u8, 0, 0, RuntimeOpcode::HALT as u8];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         registers[0] = 5;
@@ -419,15 +414,15 @@ mod tests {
     #[test]
     fn test_add() {
         let program = [
-            BinaryOpcode::ADD_LITERAL as u8,
+            RuntimeOpcode::ADD_LITERAL as u8,
             0,
             0,
             5,
-            BinaryOpcode::ADD_REGISTER as u8,
+            RuntimeOpcode::ADD_REGISTER as u8,
             1,
             1,
             0,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -439,15 +434,15 @@ mod tests {
     #[test]
     fn test_sub() {
         let program = [
-            BinaryOpcode::SUB_LITERAL as u8,
+            RuntimeOpcode::SUB_LITERAL as u8,
             0,
             0,
             5,
-            BinaryOpcode::SUB_REGISTER as u8,
+            RuntimeOpcode::SUB_REGISTER as u8,
             1,
             1,
             0,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -461,13 +456,13 @@ mod tests {
     #[test]
     fn test_mov() {
         let program = [
-            BinaryOpcode::MOV_LITERAL as u8,
+            RuntimeOpcode::MOV_LITERAL as u8,
             0,
             5,
-            BinaryOpcode::MOV_REGISTER as u8,
+            RuntimeOpcode::MOV_REGISTER as u8,
             1,
             0,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -480,10 +475,10 @@ mod tests {
     fn test_cmp_equal_numbers() {
         // Comparison of register 0 and value 0
         let program = &[
-            BinaryOpcode::CMP_LITERAL as u8,
+            RuntimeOpcode::CMP_LITERAL as u8,
             0,
             0,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -494,10 +489,10 @@ mod tests {
 
         // Comparison of contents of register 0 and 1 (both have values of 0)
         let program = &[
-            BinaryOpcode::CMP_REGISTER as u8,
+            RuntimeOpcode::CMP_REGISTER as u8,
             0,
             1,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(program);
         let interpreter =
@@ -510,10 +505,10 @@ mod tests {
     fn test_cmp_greater_than() {
         // Comparison of register 0 (value of 5) and value 0
         let program = &[
-            BinaryOpcode::CMP_LITERAL as u8,
+            RuntimeOpcode::CMP_LITERAL as u8,
             0,
             0,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory: [u8; 256] = load_test_program(program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -524,10 +519,10 @@ mod tests {
         assert_eq!(interpreter.underflow, false);
 
         let program = &[
-            BinaryOpcode::CMP_REGISTER as u8,
+            RuntimeOpcode::CMP_REGISTER as u8,
             0,
             1,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(program);
         let interpreter =
@@ -540,10 +535,10 @@ mod tests {
     fn test_cmp_less_than() {
         // Comparison of register 0 (value of 0) and value 5
         let program = &[
-            BinaryOpcode::CMP_LITERAL as u8,
+            RuntimeOpcode::CMP_LITERAL as u8,
             0,
             5,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory: [u8; 256] = load_test_program(program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -555,10 +550,10 @@ mod tests {
 
         // Comaparison of register 0 (value of 0) and register 1 (value of 5)
         let program = &[
-            BinaryOpcode::CMP_REGISTER as u8,
+            RuntimeOpcode::CMP_REGISTER as u8,
             0,
             1,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(program);
         let interpreter =
@@ -570,10 +565,10 @@ mod tests {
     #[test]
     fn test_unconditional_branch() {
         let program = [
-            BinaryOpcode::B as u8,
+            RuntimeOpcode::B as u8,
             3,
-            BinaryOpcode::HALT as u8,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -586,10 +581,10 @@ mod tests {
     fn test_beq() {
         // Successful BEQ
         let program = [
-            BinaryOpcode::BEQ as u8,
+            RuntimeOpcode::BEQ as u8,
             3,
-            BinaryOpcode::HALT as u8,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -615,10 +610,10 @@ mod tests {
     fn test_bne() {
         // Successful BNE
         let program = [
-            BinaryOpcode::BNE as u8,
+            RuntimeOpcode::BNE as u8,
             3,
-            BinaryOpcode::HALT as u8,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -644,10 +639,10 @@ mod tests {
     fn test_bgt() {
         // Successful BGT - num is greater
         let program = [
-            BinaryOpcode::BGT as u8,
+            RuntimeOpcode::BGT as u8,
             3,
-            BinaryOpcode::HALT as u8,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -680,10 +675,10 @@ mod tests {
     fn test_blt() {
         // Successful BLT - num is greater
         let program = [
-            BinaryOpcode::BLT as u8,
+            RuntimeOpcode::BLT as u8,
             3,
-            BinaryOpcode::HALT as u8,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -715,15 +710,15 @@ mod tests {
     #[test]
     fn test_and() {
         let program = [
-            BinaryOpcode::AND_LITERAL as u8,
+            RuntimeOpcode::AND_LITERAL as u8,
             0,
             0,
             0b11110000,
-            BinaryOpcode::AND_REGISTER as u8,
+            RuntimeOpcode::AND_REGISTER as u8,
             1,
             1,
             2,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -738,15 +733,15 @@ mod tests {
     #[test]
     fn test_orr() {
         let program = [
-            BinaryOpcode::ORR_LITERAL as u8,
+            RuntimeOpcode::ORR_LITERAL as u8,
             0,
             0,
             0b00001111,
-            BinaryOpcode::ORR_REGISTER as u8,
+            RuntimeOpcode::ORR_REGISTER as u8,
             1,
             1,
             0,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -759,15 +754,15 @@ mod tests {
     #[test]
     fn test_eor() {
         let program = [
-            BinaryOpcode::EOR_LITERAL as u8,
+            RuntimeOpcode::EOR_LITERAL as u8,
             0,
             0,
             0b00001111,
-            BinaryOpcode::EOR_REGISTER as u8,
+            RuntimeOpcode::EOR_REGISTER as u8,
             1,
             1,
             1,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -781,13 +776,13 @@ mod tests {
     #[test]
     fn test_mvn() {
         let program = [
-            BinaryOpcode::MVN_LITERAL as u8,
+            RuntimeOpcode::MVN_LITERAL as u8,
             0,
             0b00001111,
-            BinaryOpcode::MVN_REGISTER as u8,
+            RuntimeOpcode::MVN_REGISTER as u8,
             1,
             0,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -801,15 +796,15 @@ mod tests {
     #[test]
     fn test_lsl() {
         let program = [
-            BinaryOpcode::LSL_LITERAL as u8,
+            RuntimeOpcode::LSL_LITERAL as u8,
             0,
             0,
             4,
-            BinaryOpcode::LSL_REGISTER as u8,
+            RuntimeOpcode::LSL_REGISTER as u8,
             1,
             1,
             2,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -824,15 +819,15 @@ mod tests {
     #[test]
     fn test_lsr() {
         let program = [
-            BinaryOpcode::LSR_LITERAL as u8,
+            RuntimeOpcode::LSR_LITERAL as u8,
             0,
             0,
             4,
-            BinaryOpcode::LSR_REGISTER as u8,
+            RuntimeOpcode::LSR_REGISTER as u8,
             1,
             1,
             2,
-            BinaryOpcode::HALT as u8,
+            RuntimeOpcode::HALT as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -846,7 +841,7 @@ mod tests {
 
     #[test]
     fn test_halt() {
-        let program = [BinaryOpcode::HALT as u8];
+        let program = [RuntimeOpcode::HALT as u8];
         let mut memory = load_test_program(&program);
         let memory_copy = memory.clone();
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -860,7 +855,7 @@ mod tests {
 
     #[test]
     fn test_out_of_bounds_read() {
-        let program = [BinaryOpcode::LDR as u8, 0, 253];
+        let program = [RuntimeOpcode::LDR as u8, 0, 253];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert!(matches!(
@@ -871,7 +866,7 @@ mod tests {
 
     #[test]
     fn test_out_of_bounds_write() {
-        let program = [BinaryOpcode::STR as u8, 0, 253];
+        let program = [RuntimeOpcode::STR as u8, 0, 253];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert!(matches!(
