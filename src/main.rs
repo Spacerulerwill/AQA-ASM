@@ -11,7 +11,7 @@ use inline_colorization::{color_green, color_red, color_reset, style_bold, style
 use interpreter::{Interpreter, REGISTER_COUNT};
 use parser::Parser;
 use std::fs;
-use tokenizer::{OperandType, Tokenizer};
+use tokenizer::{OperandKind, Tokenizer};
 
 /// An interpreter for the AQA assembly language
 #[derive(ClapParser, Debug)]

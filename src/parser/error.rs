@@ -1,4 +1,4 @@
-use crate::tokenizer::{OperandType, Token, TokenKind};
+use crate::tokenizer::{OperandKind, Token, TokenKind};
 use inline_colorization::{color_red, color_reset, style_bold, style_reset};
 use std::{collections::HashSet, fmt};
 
@@ -42,7 +42,7 @@ impl fmt::Display for ParserError {
             }
             ParserError::ExpectedOperand(err) => {
                 assert!(err.expected.len() > 0);
-                let unique_expected: HashSet<OperandType> =
+                let unique_expected: HashSet<OperandKind> =
                     HashSet::from_iter(err.expected.iter().cloned());
                 if unique_expected.len() == 1 {
                     match &err.got {
@@ -123,7 +123,7 @@ pub struct ExpectedOpcode {
 
 #[derive(Debug)]
 pub struct ExpectedOperand {
-    pub expected: Vec<OperandType>,
+    pub expected: Vec<OperandKind>,
     pub got: Option<Token>,
 }
 

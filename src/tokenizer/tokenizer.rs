@@ -12,7 +12,7 @@ use super::{
 };
 use crate::source_opcode::SourceOpcode;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum OperandType {
+pub enum OperandKind {
     Literal,
     Register,
     MemoryRef,
@@ -197,13 +197,13 @@ impl<'a> Tokenizer<'a> {
 
     fn tokenize_memory_reference(&mut self) -> Result<(), TokenizerError> {
         let value = self.consume_u8().unwrap()?;
-        self.add_token(TokenKind::Operand(OperandType::MemoryRef, value))
+        self.add_token(TokenKind::Operand(OperandKind::MemoryRef, value))
     }
 
     fn tokenize_literal(&mut self) -> Result<(), TokenizerError> {
         self.next();
         match self.consume_u8() {
-            Some(Ok(val)) => self.add_token(TokenKind::Operand(OperandType::Literal, val)),
+            Some(Ok(val)) => self.add_token(TokenKind::Operand(OperandKind::Literal, val)),
             Some(Err(err)) => return Err(err),
             None => {
                 return Err(TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
@@ -231,7 +231,7 @@ impl<'a> Tokenizer<'a> {
                             },
                         )));
                     }
-                    self.add_token(TokenKind::Operand(OperandType::Register, val))?;
+                    self.add_token(TokenKind::Operand(OperandKind::Register, val))?;
                     Ok(())
                 }
                 Some(Err(err)) => Err(err),
@@ -292,7 +292,7 @@ impl<'a> Tokenizer<'a> {
             return Ok(());
         }
         // It's a label operand
-        self.add_token(TokenKind::Operand(OperandType::Label, 0))?;
+        self.add_token(TokenKind::Operand(OperandKind::Label, 0))?;
         Ok(())
     }
 
@@ -374,10 +374,10 @@ mod tests {
             ("\n", TokenKind::Newline),
             (";", TokenKind::Semicolon),
             (",", TokenKind::Comma),
-            ("123", TokenKind::Operand(OperandType::MemoryRef, 123)),
-            ("#12", TokenKind::Operand(OperandType::Literal, 12)),
-            ("R3", TokenKind::Operand(OperandType::Register, 3)),
-            ("label_operand", TokenKind::Operand(OperandType::Label, 0)),
+            ("123", TokenKind::Operand(OperandKind::MemoryRef, 123)),
+            ("#12", TokenKind::Operand(OperandKind::Literal, 12)),
+            ("R3", TokenKind::Operand(OperandKind::Register, 3)),
+            ("label_operand", TokenKind::Operand(OperandKind::Label, 0)),
             ("NOP", TokenKind::Opcode(SourceOpcode::NOP)),
             ("LDR", TokenKind::Opcode(SourceOpcode::LDR)),
             ("STR", TokenKind::Opcode(SourceOpcode::STR)),

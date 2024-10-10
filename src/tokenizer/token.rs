@@ -1,10 +1,10 @@
-use super::OperandType;
+use super::OperandKind;
 use crate::source_opcode::SourceOpcode;
 
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKind {
-    Operand(OperandType, u8),
+    Operand(OperandKind, u8),
     Opcode(SourceOpcode),
     Newline,
     Semicolon,

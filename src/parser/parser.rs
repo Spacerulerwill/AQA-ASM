@@ -1,6 +1,6 @@
 use crate::{
     source_opcode,
-    tokenizer::{LabelDefinition, OperandType, Token, TokenKind},
+    tokenizer::{LabelDefinition, OperandKind, Token, TokenKind},
 };
 use source_opcode::SourceOpcode;
 use std::{collections::HashMap, iter::Peekable, slice::IterMut, vec::IntoIter};
@@ -105,12 +105,12 @@ impl<'a> Parser<'a> {
     }
 
     /// Try and consume an operand in the token stream
-    fn consume_operand(&mut self, expected_operand: OperandType) -> Result<u8, ParserError> {
+    fn consume_operand(&mut self, expected_operand: OperandKind) -> Result<u8, ParserError> {
         match self.token_iter.peek() {
             Some(token) => {
                 match token.kind {
                     // When consuming a label operand, we must check it exists
-                    TokenKind::Operand(OperandType::Label, _) => {
+                    TokenKind::Operand(OperandKind::Label, _) => {
                         if let Some(val) = self.labels.get(&token.lexeme) {
                             self.token_iter.next();
                             Ok(val.byte)
@@ -197,7 +197,7 @@ impl<'a> Parser<'a> {
         }
 
         // No match found, incorrect operand at operand_idx
-        let potential_operands: Vec<OperandType> = operand_formats
+        let potential_operands: Vec<OperandKind> = operand_formats
             .iter()
             .map(|(_, operands)| operands.get(operand_idx).expect("This will only fail if an opcode has multiple operand patterns with different lengths!").clone())
             .collect();
@@ -280,11 +280,11 @@ mod tests {
     fn test_missing_line_delimeter() {
         let program = &[
             TokenKind::Opcode(SourceOpcode::ADD),
-            TokenKind::Operand(OperandType::Register, 0),
+            TokenKind::Operand(OperandKind::Register, 0),
             TokenKind::Comma,
-            TokenKind::Operand(OperandType::Register, 0),
+            TokenKind::Operand(OperandKind::Register, 0),
             TokenKind::Comma,
-            TokenKind::Operand(OperandType::Literal, 0),
+            TokenKind::Operand(OperandKind::Literal, 0),
         ];
         let tokens = create_tokens_from_token_type(program);
         assert!(matches!(
@@ -295,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_expected_opcode() {
-        let program = &[TokenKind::Operand(OperandType::Register, 0)];
+        let program = &[TokenKind::Operand(OperandKind::Register, 0)];
         let tokens = create_tokens_from_token_type(program);
         assert!(matches!(
             Parser::parse(tokens, HashMap::new()),
@@ -307,7 +307,7 @@ mod tests {
     fn test_unexpected_token() {
         let program = &[
             TokenKind::Opcode(SourceOpcode::ADD),
-            TokenKind::Operand(OperandType::Register, 0),
+            TokenKind::Operand(OperandKind::Register, 0),
             TokenKind::Semicolon,
         ];
         let tokens = create_tokens_from_token_type(program);
@@ -331,7 +331,7 @@ mod tests {
     fn test_invalid_label() {
         let program = &[
             TokenKind::Opcode(SourceOpcode::B),
-            TokenKind::Operand(OperandType::Label, 0),
+            TokenKind::Operand(OperandKind::Label, 0),
         ];
         let tokens = create_tokens_from_token_type(program);
         assert!(matches!(

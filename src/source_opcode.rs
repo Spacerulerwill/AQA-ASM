@@ -1,4 +1,4 @@
-use super::OperandType;
+use super::OperandKind;
 use crate::runtime_opcode::RuntimeOpcode;
 use std::str::FromStr;
 use strum::EnumIter;
@@ -31,32 +31,32 @@ pub enum SourceOpcode {
 }
 
 impl SourceOpcode {
-    pub fn got_operand_formats(&self) -> Vec<(RuntimeOpcode, Vec<OperandType>)> {
+    pub fn got_operand_formats(&self) -> Vec<(RuntimeOpcode, Vec<OperandKind>)> {
         match self {
             SourceOpcode::NOP => vec![(RuntimeOpcode::NOP, vec![])],
             SourceOpcode::LDR => vec![(
                 RuntimeOpcode::LDR,
-                vec![OperandType::Register, OperandType::MemoryRef],
+                vec![OperandKind::Register, OperandKind::MemoryRef],
             )],
             SourceOpcode::STR => vec![(
                 RuntimeOpcode::STR,
-                vec![OperandType::Register, OperandType::MemoryRef],
+                vec![OperandKind::Register, OperandKind::MemoryRef],
             )],
             SourceOpcode::ADD => vec![
                 (
                     RuntimeOpcode::ADD_LITERAL,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Literal,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Literal,
                     ],
                 ),
                 (
                     RuntimeOpcode::ADD_REGISTER,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
                     ],
                 ),
             ],
@@ -64,60 +64,60 @@ impl SourceOpcode {
                 (
                     RuntimeOpcode::SUB_LITERAL,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Literal,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Literal,
                     ],
                 ),
                 (
                     RuntimeOpcode::SUB_REGISTER,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
                     ],
                 ),
             ],
             SourceOpcode::MOV => vec![
                 (
                     RuntimeOpcode::MOV_LITERAL,
-                    vec![OperandType::Register, OperandType::Literal],
+                    vec![OperandKind::Register, OperandKind::Literal],
                 ),
                 (
                     RuntimeOpcode::MOV_REGISTER,
-                    vec![OperandType::Register, OperandType::Register],
+                    vec![OperandKind::Register, OperandKind::Register],
                 ),
             ],
             SourceOpcode::CMP => vec![
                 (
                     RuntimeOpcode::CMP_LITERAL,
-                    vec![OperandType::Register, OperandType::Literal],
+                    vec![OperandKind::Register, OperandKind::Literal],
                 ),
                 (
                     RuntimeOpcode::CMP_REGISTER,
-                    vec![OperandType::Register, OperandType::Register],
+                    vec![OperandKind::Register, OperandKind::Register],
                 ),
             ],
-            SourceOpcode::B => vec![(RuntimeOpcode::B, vec![OperandType::Label])],
-            SourceOpcode::BEQ => vec![(RuntimeOpcode::BEQ, vec![OperandType::Label])],
-            SourceOpcode::BNE => vec![(RuntimeOpcode::BNE, vec![OperandType::Label])],
-            SourceOpcode::BGT => vec![(RuntimeOpcode::BGT, vec![OperandType::Label])],
-            SourceOpcode::BLT => vec![(RuntimeOpcode::BLT, vec![OperandType::Label])],
+            SourceOpcode::B => vec![(RuntimeOpcode::B, vec![OperandKind::Label])],
+            SourceOpcode::BEQ => vec![(RuntimeOpcode::BEQ, vec![OperandKind::Label])],
+            SourceOpcode::BNE => vec![(RuntimeOpcode::BNE, vec![OperandKind::Label])],
+            SourceOpcode::BGT => vec![(RuntimeOpcode::BGT, vec![OperandKind::Label])],
+            SourceOpcode::BLT => vec![(RuntimeOpcode::BLT, vec![OperandKind::Label])],
             SourceOpcode::AND => vec![
                 (
                     RuntimeOpcode::AND_LITERAL,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Literal,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Literal,
                     ],
                 ),
                 (
                     RuntimeOpcode::AND_REGISTER,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
                     ],
                 ),
             ],
@@ -125,17 +125,17 @@ impl SourceOpcode {
                 (
                     RuntimeOpcode::ORR_LITERAL,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Literal,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Literal,
                     ],
                 ),
                 (
                     RuntimeOpcode::ORR_REGISTER,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
                     ],
                 ),
             ],
@@ -143,45 +143,45 @@ impl SourceOpcode {
                 (
                     RuntimeOpcode::EOR_LITERAL,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Literal,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Literal,
                     ],
                 ),
                 (
                     RuntimeOpcode::EOR_REGISTER,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
                     ],
                 ),
             ],
             SourceOpcode::MVN => vec![
                 (
                     RuntimeOpcode::MVN_LITERAL,
-                    vec![OperandType::Register, OperandType::Literal],
+                    vec![OperandKind::Register, OperandKind::Literal],
                 ),
                 (
                     RuntimeOpcode::MVN_REGISTER,
-                    vec![OperandType::Register, OperandType::Register],
+                    vec![OperandKind::Register, OperandKind::Register],
                 ),
             ],
             SourceOpcode::LSL => vec![
                 (
                     RuntimeOpcode::LSL_LITERAL,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Literal,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Literal,
                     ],
                 ),
                 (
                     RuntimeOpcode::LSL_REGISTER,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
                     ],
                 ),
             ],
@@ -189,28 +189,28 @@ impl SourceOpcode {
                 (
                     RuntimeOpcode::LSR_LITERAL,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Literal,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Literal,
                     ],
                 ),
                 (
                     RuntimeOpcode::LSR_REGISTER,
                     vec![
-                        OperandType::Register,
-                        OperandType::Register,
-                        OperandType::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
+                        OperandKind::Register,
                     ],
                 ),
             ],
             SourceOpcode::HALT => vec![(RuntimeOpcode::HALT, vec![])],
             SourceOpcode::PRINT => vec![
-                (RuntimeOpcode::PRINT_REGISTER, vec![OperandType::Register]),
-                (RuntimeOpcode::PRINT_MEMORY, vec![OperandType::MemoryRef]),
+                (RuntimeOpcode::PRINT_REGISTER, vec![OperandKind::Register]),
+                (RuntimeOpcode::PRINT_MEMORY, vec![OperandKind::MemoryRef]),
             ],
             SourceOpcode::INPUT => vec![
-                (RuntimeOpcode::INPUT_REGISTER, vec![OperandType::Register]),
-                (RuntimeOpcode::INPUT_MEMORY, vec![OperandType::MemoryRef]),
+                (RuntimeOpcode::INPUT_REGISTER, vec![OperandKind::Register]),
+                (RuntimeOpcode::INPUT_MEMORY, vec![OperandKind::MemoryRef]),
             ],
         }
     }
