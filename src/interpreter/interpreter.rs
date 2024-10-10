@@ -89,13 +89,9 @@ impl<'a> Interpreter<'a> {
         if self.program_counter >= self.program_bytes {
             return Err(RuntimeError::ReadPastMemory);
         }
-        match self.memory.get(self.program_counter) {
-            Some(val) => {
-                self.program_counter += 1;
-                Ok(*val)
-            }
-            None => Err(RuntimeError::ReadPastMemory),
-        }
+        let result = self.memory[self.program_counter];
+        self.program_counter += 1;
+        Ok(result)
     }
 
     fn read_memory_address(&self, idx: usize) -> Result<u8, RuntimeError> {
@@ -878,6 +874,17 @@ mod tests {
     #[test]
     fn test_read_past_of_memory() {
         let program = [];
+        let mut memory = load_test_program(&program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+        assert!(matches!(
+            Interpreter::interpret(&mut memory, &mut registers, program.len()),
+            Err(RuntimeError::ReadPastMemory)
+        ))
+    }
+
+    #[test]
+    fn test_read_past_max_memory() {
+        let program = [RuntimeOpcode::NOP as u8; 256];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert!(matches!(
