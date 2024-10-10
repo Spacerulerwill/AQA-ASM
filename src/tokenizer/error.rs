@@ -1,8 +1,6 @@
 use inline_colorization::{color_red, color_reset, style_bold, style_reset};
 use std::fmt;
 
-use super::TokenPosition;
-
 #[derive(Debug, PartialEq)]
 pub enum TokenizerError {
     ProgramTooLarge(Box<ProgramTooLarge>),
@@ -32,60 +30,60 @@ impl fmt::Display for TokenizerError {
             TokenizerError::LiteralValueTooLarge(err) => write!(
                 f,
                 "Line {}, Column {} :: Literal value '{}' too large (max value of 255)",
-                err.position.line,
-                err.position.col,
+                err.line,
+                err.col,
                 &err.value_string
             ),
             TokenizerError::MissingNumberAfterRegisterDenoter(err) => write!(
                 f,
                 "Line {}, Column {} :: Missing number after register denoter 'R'",
-                err.position.line,
-                err.position.col,
+                err.line,
+                err.col,
             ),
             TokenizerError::MissingNumberAfterLiteralDenoter(err) => write!(
                 f,
                 "Line {}, Column {} :: Missing number after literal denoter '#'",
-                err.position.line,
-                err.position.col,
+                err.line,
+                err.col,
             ),
             TokenizerError::InvalidRegisterNumber(err) => write!(
                 f,
                 "Line {}, Column {} :: Invalid register 'R{}' (must be in range 0-12 inclusive)",
-                err.position.line,
-                err.position.col,
+                err.line,
+                err.col,
                 err.value,
             ),
             TokenizerError::InvalidLabelDefinitionLocation(err) => write!(
                 f,
                 "Line {}, Column {} :: Invalid label definition location for label '{}', labels may only appear after line delimiters (newline or ';')",
-                err.position.line,
-                err.position.col,
+                err.line,
+                err.col,
                 &err.label_name
             ),
             TokenizerError::DuplicateLabelDefinition(err) => write!(
                 f,
                 "Line {}, Column {} :: Definition for label '{}' already exists",
-                err.position.line,
-                err.position.col,
+                err.line,
+                err.col,
                 &err.label_name,
             ),
             TokenizerError::UnterminatedBlockComment(err) => write!(
                 f,
                 "Line {}, Column {} :: Unterminated block comment begins here",
-                err.position.line,
-                err.position.col,
+                err.line,
+                err.col,
             ),
             TokenizerError::InvalidCommentDenoter(err) => write!(
                 f,
                 "Line {}, Column {} :: Expected '//' or '/*' for comment, not '/'",
-                err.position.line,
-                err.position.col,
+                err.line,
+                err.col,
             ),
             TokenizerError::UnexpectedCharacter(err) => write!(
                 f,
                 "Line {}, Column {} :: Unexpected character: '{}'",
-                err.position.line,
-                err.position.col,
+                err.line,
+                err.col,
                 err.char
             ),
         }?;
@@ -102,49 +100,58 @@ pub struct ProgramTooLarge {
 #[derive(Debug, PartialEq)]
 pub struct LiteralValueTooLarge {
     pub value_string: String,
-    pub position: TokenPosition,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct MissingNumberAfterRegisterDenoter {
-    pub position: TokenPosition,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct MissingNumberAfterLiteralDenoter {
-    pub position: TokenPosition,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct InvalidRegisterNumber {
     pub value: u8,
-    pub position: TokenPosition,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct InvalidLabelDefinitionLocation {
     pub label_name: String,
-    pub position: TokenPosition,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct DuplicateLabelDefinition {
     pub label_name: String,
-    pub position: TokenPosition,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct UnterminatedBlockComment {
-    pub position: TokenPosition,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct InvalidCommentDenoter {
-    pub position: TokenPosition,
+    pub line: usize,
+    pub col: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct UnexpectedCharacter {
     pub char: char,
-    pub position: TokenPosition,
+    pub line: usize,
+    pub col: usize,
 }

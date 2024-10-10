@@ -69,7 +69,7 @@ fn main() {
     };
 
     // Parse and load the instructions into memory
-    let mut memory = match Parser::parse(&tokenizer.tokens, &tokenizer.labels) {
+    let mut memory = match Parser::parse(tokenizer.tokens, tokenizer.labels) {
         Ok(memory) => memory,
         Err(err) => {
             println! {"{err}"}

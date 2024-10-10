@@ -17,57 +17,88 @@ impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{color_red}{style_bold}")?;
         match self {
-            ParserError::ExpectedLineDelimeter(err) => write!(
-                f,
-                "Line {}, Column {} :: Expected line delimeter (semicolon or newline), found token {}",
-                err.got.line,
-                err.got.col,
-                &err.got.get_token_debug_repr(),
-            ),
-            ParserError::ExpectedOpcode(err) => write!(
-                f,
-                "Line {}, Column {} :: Expected instruction opcode, found token {}",
-                err.got.line,
-                err.got.col,
-                &err.got.get_token_debug_repr(),
-            ),
+            ParserError::ExpectedLineDelimeter(err) => match &err.got {
+                Some(token) => write!(
+                    f,
+                    "Line {}, Column {} :: Expected line delimeter (semicolon or newline), found token {}",
+                    token.line,
+                    token.col,
+                    &token.get_token_debug_repr(),
+                ),
+                None => write!(
+                    f,
+                    "Expected line delimeter (semicolon or newline), EOF",
+                )
+            }
+            ParserError::ExpectedOpcode(err) => match &err.got {
+                Some(token) => write!(
+                    f,
+                    "Line {}, Column {} :: Expected instruction opcode, found token {}",
+                    token.line,
+                    token.col,
+                    &token.get_token_debug_repr(),
+                ),
+                None => write!(f, "Expected instruction opcode, found EOF")
+            }
             ParserError::ExpectedOperand(err) => {
                 assert!(err.expected.len() > 0);
                 let unique_expected: HashSet<OperandType> =
                     HashSet::from_iter(err.expected.iter().cloned());
                 if unique_expected.len() == 1 {
-                    write!(
-                        f,
-                        "Line {}, Column {} :: Unexpected token {}, expected {:?}",
-                        err.got.line,
-                        err.got.col,
-                        &err.got.get_token_debug_repr(),
-                        err.expected[0]
-                    )
+                    match &err.got {
+                        Some(token) => write!(
+                            f,
+                            "Line {}, Column {} :: Expected {:?}, found token {}",
+                            token.line,
+                            token.col,
+                            err.expected[0],
+                            &token.get_token_debug_repr(),
+                        ),
+                        None => write!(
+                            f,
+                            "Expected {:?}, found EOF",
+                            err.expected[0],
+                        )
+                    }
                 } else {
                     let result = unique_expected
                         .iter()
                         .map(|s| format!("\t• {:?}", s))
                         .collect::<Vec<_>>()
                         .join("\n");
-                    write!(
-                        f,
-                        "Line {}, Column {}, Unexpected token {}, expected one of the following:\n{}",
-                        err.got.line,
-                        err.got.col,
-                        &err.got.get_token_debug_repr(),
-                        &result
-                    )
+
+                    match &err.got {
+                        Some(token) => write!(
+                            f,
+                            "Line {}, Column {}, Expected one of the following:\n{}\nbut found {}",
+                            token.line,
+                            token.col,
+                            &result,
+                            &token.get_token_debug_repr(),
+                        ),
+                        None => write!(
+                            f,
+                            "Expected one of the following:\n{}\nbut found EOF",
+                            &result,
+                        ),
+                    }
                 }
             }
-            ParserError::UnexpectedToken(err) => write!(
-                f,
-                "Line {}, Column {} :; Expected {:?}, found {}",
-                err.got.line,
-                err.got.col,
-                err.expected,
-                &err.got.get_token_debug_repr(),
-            ),
+            ParserError::UnexpectedToken(err) => match &err.got {
+                Some(token) => write!(
+                    f,
+                    "Line {}, Column {} :; Expected {:?}, found {}",
+                    token.line,
+                    token.col,
+                    err.expected,
+                    &token.get_token_debug_repr(),
+                ),
+                None => write!(
+                    f,
+                    "Expected {:?}, found EOF",
+                    err.expected
+                )
+            }
             ParserError::InvalidLabel(err) => write!(
                 f,
                 "Line {}, Column {} :: No label exists with name: {}",
@@ -82,24 +113,24 @@ impl fmt::Display for ParserError {
 
 #[derive(Debug)]
 pub struct ExpectedLineDelimeter {
-    pub got: Token,
+    pub got: Option<Token>,
 }
 
 #[derive(Debug)]
 pub struct ExpectedOpcode {
-    pub got: Token,
+    pub got: Option<Token>,
 }
 
 #[derive(Debug)]
 pub struct ExpectedOperand {
     pub expected: Vec<OperandType>,
-    pub got: Token,
+    pub got: Option<Token>,
 }
 
 #[derive(Debug)]
 pub struct UnexpectedToken {
     pub expected: TokenKind,
-    pub got: Token,
+    pub got: Option<Token>,
 }
 
 #[derive(Debug)]

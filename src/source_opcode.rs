@@ -292,5 +292,4 @@ mod tests {
             assert_eq!(SourceOpcode::from_str(input), expected);
         }
     }
-
 }

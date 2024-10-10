@@ -1,6 +1,4 @@
-use crate::{
-    interpreter::REGISTER_COUNT, tokenizer::InvalidLabelDefinitionLocation,
-};
+use crate::{interpreter::REGISTER_COUNT, tokenizer::InvalidLabelDefinitionLocation};
 use std::{
     collections::HashMap,
     iter::Peekable,
@@ -94,20 +92,13 @@ impl<'a> Tokenizer<'a> {
                     return Err(TokenizerError::UnexpectedCharacter(Box::new(
                         UnexpectedCharacter {
                             char: ch,
-                            position: self.prev_pos.clone(),
+                            line: self.prev_pos.line,
+                            col: self.prev_pos.col,
                         },
                     )))
                 }
             };
         }
-
-        // EOF token
-        self.tokens.push(Token {
-            kind: TokenKind::EOF,
-            lexeme: String::from("EOF"),
-            line: self.current_pos.line,
-            col: self.current_pos.col,
-        });
         Ok(())
     }
 
@@ -190,7 +181,8 @@ impl<'a> Tokenizer<'a> {
                     return Some(Err(TokenizerError::LiteralValueTooLarge(Box::new(
                         LiteralValueTooLarge {
                             value_string,
-                            position: self.prev_pos.clone(),
+                            line: self.prev_pos.line,
+                            col: self.prev_pos.col,
                         },
                     ))))
                 }
@@ -216,7 +208,8 @@ impl<'a> Tokenizer<'a> {
             None => {
                 return Err(TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
                     MissingNumberAfterLiteralDenoter {
-                        position: self.prev_pos.clone(),
+                        line: self.prev_pos.line,
+                        col: self.prev_pos.col,
                     },
                 )))
             }
@@ -233,7 +226,8 @@ impl<'a> Tokenizer<'a> {
                         return Err(TokenizerError::InvalidRegisterNumber(Box::new(
                             InvalidRegisterNumber {
                                 value: val,
-                                position: self.prev_pos.clone(),
+                                line: self.prev_pos.line,
+                                col: self.prev_pos.col,
                             },
                         )));
                     }
@@ -243,7 +237,8 @@ impl<'a> Tokenizer<'a> {
                 Some(Err(err)) => Err(err),
                 None => Err(TokenizerError::MissingNumberAfterRegisterDenoter(Box::new(
                     MissingNumberAfterRegisterDenoter {
-                        position: self.prev_pos.clone(),
+                        line: self.prev_pos.line,
+                        col: self.prev_pos.col,
                     },
                 ))),
             };
@@ -251,7 +246,7 @@ impl<'a> Tokenizer<'a> {
         // Is it an opcode?
         if let Ok(source_opcode) = SourceOpcode::from_str(&identifier) {
             self.add_token(TokenKind::Opcode(source_opcode))?;
-            return Ok(())
+            return Ok(());
         }
         // Is it a label definition? (i.e a ':' follows it)
         if let Some(':') = self.iter.peek() {
@@ -266,7 +261,8 @@ impl<'a> Tokenizer<'a> {
                     return Err(TokenizerError::InvalidLabelDefinitionLocation(Box::new(
                         InvalidLabelDefinitionLocation {
                             label_name: identifier,
-                            position: self.prev_pos.clone(),
+                            line: self.prev_pos.line,
+                            col: self.prev_pos.col,
                         },
                     )))
                 }
@@ -277,7 +273,8 @@ impl<'a> Tokenizer<'a> {
                 return Err(TokenizerError::DuplicateLabelDefinition(Box::new(
                     DuplicateLabelDefinition {
                         label_name: identifier,
-                        position: self.prev_pos.clone(),
+                        line: self.prev_pos.line,
+                        col: self.prev_pos.col,
                     },
                 )));
             }
@@ -300,7 +297,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn comment(&mut self) -> Result<(), TokenizerError> {
-        self.next(); 
+        self.next();
         match self.iter.peek() {
             // Comments starts with // therefore its a line comment
             Some('/') => {
@@ -312,7 +309,7 @@ impl<'a> Tokenizer<'a> {
                         self.next();
                     }
                 }
-            },
+            }
             // Comment starts with a /* so its multiline
             Some('*') => loop {
                 match self.next() {
@@ -321,15 +318,27 @@ impl<'a> Tokenizer<'a> {
                             self.next(); // Consume the '/'
                             break; // Exit the loop
                         }
-                    },
+                    }
                     Some(_) => continue, // Continue if it's not '*'
-                    None => return Err(TokenizerError::UnterminatedBlockComment(Box::new(
-                        UnterminatedBlockComment { position: self.prev_pos.clone() },
-                    ))),
+                    None => {
+                        return Err(TokenizerError::UnterminatedBlockComment(Box::new(
+                            UnterminatedBlockComment {
+                                line: self.prev_pos.line,
+                                col: self.prev_pos.col,
+                            },
+                        )))
+                    }
                 }
             },
             // A single / by itself is dumb, lets tell the user off
-            _ => return Err(TokenizerError::InvalidCommentDenoter(Box::new(InvalidCommentDenoter { position: self.prev_pos.clone() })))
+            _ => {
+                return Err(TokenizerError::InvalidCommentDenoter(Box::new(
+                    InvalidCommentDenoter {
+                        line: self.prev_pos.line,
+                        col: self.prev_pos.col,
+                    },
+                )))
+            }
         }
         self.prev_pos = self.current_pos.clone();
         Ok(())
@@ -357,41 +366,6 @@ mod tests {
     fn test_token_type_sequence(input: &str, expected: &[TokenKind]) {
         let token_types = extract_token_types(Tokenizer::tokenize(input, 4).unwrap().tokens);
         assert_eq!(token_types, expected);
-    }
-
-    #[test]
-    fn test_get_token_debug_repr() {
-        for (input, expected) in [
-            (
-                Token {
-                    kind: TokenKind::Newline,
-                    lexeme: String::from("\n"),
-                    line: 0,
-                    col: 0,
-                },
-                "'newline'",
-            ),
-            (
-                Token {
-                    kind: TokenKind::EOF,
-                    lexeme: String::from("EOF"),
-                    line: 0,
-                    col: 0,
-                },
-                "'end of file'",
-            ),
-            (
-                Token {
-                    kind: TokenKind::Comma,
-                    lexeme: String::from(","),
-                    line: 0,
-                    col: 0,
-                },
-                "','",
-            ),
-        ] {
-            assert_eq!(input.get_token_debug_repr(), expected);
-        }
     }
 
     #[test]
@@ -426,23 +400,20 @@ mod tests {
             ("INPUT", TokenKind::Opcode(SourceOpcode::INPUT)),
             ("HALT", TokenKind::Opcode(SourceOpcode::HALT)),
         ] {
-            test_token_type_sequence(input, &[expected_output, TokenKind::EOF]);
+            test_token_type_sequence(input, &[expected_output]);
         }
     }
 
     #[test]
     fn test_comment_line_single() {
-        test_token_type_sequence(
-            "NOP // Comment",
-            &[TokenKind::Opcode(SourceOpcode::NOP), TokenKind::EOF],
-        );
+        test_token_type_sequence("NOP // Comment", &[TokenKind::Opcode(SourceOpcode::NOP)]);
     }
 
     #[test]
     fn test_comment_line_multiline() {
         test_token_type_sequence(
             "NOP /* Multiline \n Comment */",
-            &[TokenKind::Opcode(SourceOpcode::NOP), TokenKind::EOF],
+            &[TokenKind::Opcode(SourceOpcode::NOP)],
         );
     }
 
@@ -453,14 +424,13 @@ mod tests {
             &[
                 TokenKind::Opcode(SourceOpcode::NOP),
                 TokenKind::Opcode(SourceOpcode::NOP),
-                TokenKind::EOF,
             ],
         );
     }
 
     #[test]
     fn test_empty_program() {
-        test_token_type_sequence("", &[TokenKind::EOF]);
+        test_token_type_sequence("", &[]);
     }
 
     #[test]
@@ -468,13 +438,7 @@ mod tests {
         assert_eq!(
             Tokenizer::tokenize("MOV R #23", 4).unwrap_err(),
             TokenizerError::MissingNumberAfterRegisterDenoter(Box::new(
-                MissingNumberAfterRegisterDenoter {
-                    position: TokenPosition {
-                        idx: 4,
-                        line: 1,
-                        col: 5
-                    }
-                }
+                MissingNumberAfterRegisterDenoter { line: 1, col: 5 }
             ))
         );
     }
@@ -484,13 +448,7 @@ mod tests {
         assert_eq!(
             Tokenizer::tokenize("MOV R5 #", 4).unwrap_err(),
             TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
-                MissingNumberAfterLiteralDenoter {
-                    position: TokenPosition {
-                        idx: 7,
-                        line: 1,
-                        col: 8
-                    }
-                }
+                MissingNumberAfterLiteralDenoter { line: 1, col: 8 }
             ))
         );
     }
@@ -502,11 +460,8 @@ mod tests {
             Tokenizer::tokenize("MOV R5 #23 /* this is an unterminated block comment", 4)
                 .unwrap_err(),
             TokenizerError::UnterminatedBlockComment(Box::new(UnterminatedBlockComment {
-                position: TokenPosition {
-                    idx: 11,
-                    line: 1,
-                    col: 12
-                }
+                line: 1,
+                col: 12
             }))
         );
         // Half an ending delimeter
@@ -514,11 +469,8 @@ mod tests {
             Tokenizer::tokenize("MOV R5 #23 /* this is an unterminated block comment*", 4)
                 .unwrap_err(),
             TokenizerError::UnterminatedBlockComment(Box::new(UnterminatedBlockComment {
-                position: TokenPosition {
-                    idx: 11,
-                    line: 1,
-                    col: 12
-                }
+                line: 1,
+                col: 12
             }))
         );
     }
@@ -528,11 +480,8 @@ mod tests {
         assert_eq!(
             Tokenizer::tokenize("/", 4).unwrap_err(),
             TokenizerError::InvalidCommentDenoter(Box::new(InvalidCommentDenoter {
-                position: TokenPosition {
-                    idx: 0,
-                    line: 1,
-                    col: 1
-                }
+                line: 1,
+                col: 1
             }))
         );
     }
@@ -550,11 +499,8 @@ NOP",
             .unwrap_err(),
             TokenizerError::DuplicateLabelDefinition(Box::new(DuplicateLabelDefinition {
                 label_name: String::from("label"),
-                position: TokenPosition {
-                    idx: 11,
-                    line: 3,
-                    col: 1
-                }
+                line: 3,
+                col: 1
             }))
         );
     }
@@ -565,11 +511,8 @@ NOP",
             Tokenizer::tokenize("R13", 4).unwrap_err(),
             TokenizerError::InvalidRegisterNumber(Box::new(InvalidRegisterNumber {
                 value: 13,
-                position: TokenPosition {
-                    idx: 0,
-                    line: 1,
-                    col: 1
-                }
+                line: 1,
+                col: 1
             }))
         );
     }
@@ -589,11 +532,8 @@ NOP",
             TokenizerError::InvalidLabelDefinitionLocation(Box::new(
                 InvalidLabelDefinitionLocation {
                     label_name: String::from("label"),
-                    position: TokenPosition {
-                        idx: 4,
-                        line: 1,
-                        col: 5
-                    }
+                    line: 1,
+                    col: 5
                 }
             ))
         );
@@ -605,11 +545,8 @@ NOP",
             Tokenizer::tokenize("256", 4).unwrap_err(),
             TokenizerError::LiteralValueTooLarge(Box::new(LiteralValueTooLarge {
                 value_string: String::from("256"),
-                position: TokenPosition {
-                    idx: 0,
-                    line: 1,
-                    col: 1
-                }
+                line: 1,
+                col: 1
             }))
         );
     }
@@ -620,11 +557,8 @@ NOP",
             Tokenizer::tokenize("#256", 4).unwrap_err(),
             TokenizerError::LiteralValueTooLarge(Box::new(LiteralValueTooLarge {
                 value_string: String::from("256"),
-                position: TokenPosition {
-                    idx: 0,
-                    line: 1,
-                    col: 1
-                }
+                line: 1,
+                col: 1
             }))
         );
     }
@@ -635,11 +569,8 @@ NOP",
             Tokenizer::tokenize("NOP; label: ??", 4).unwrap_err(),
             TokenizerError::UnexpectedCharacter(Box::new(UnexpectedCharacter {
                 char: '?',
-                position: TokenPosition {
-                    idx: 12,
-                    line: 1,
-                    col: 13
-                }
+                line: 1,
+                col: 13
             }))
         )
     }
@@ -666,7 +597,6 @@ R11 /* bruh */ LDR ;\t// hello!
                 (7, 6), (7,9), (7, 10),
                 (8, 1), (8,5), (8,8), (8,12), (8,16), (8,18), (8,19),
                 (9, 1), (9,12), (9,24), (9,34),
-                (10,1)  
             ]
         )
     }

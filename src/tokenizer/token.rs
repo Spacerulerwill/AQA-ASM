@@ -9,7 +9,6 @@ pub enum TokenKind {
     Newline,
     Semicolon,
     Comma,
-    EOF,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,7 +40,6 @@ impl Token {
     pub fn get_token_debug_repr(&self) -> String {
         match &self.kind {
             TokenKind::Newline => String::from("'newline'"),
-            TokenKind::EOF => String::from("'end of file'"),
             _ => format!("'{}'", &self.lexeme),
         }
     }
@@ -62,15 +60,6 @@ mod tests {
                     col: 0,
                 },
                 "'newline'",
-            ),
-            (
-                Token {
-                    kind: TokenKind::EOF,
-                    lexeme: String::from("EOF"),
-                    line: 0,
-                    col: 0,
-                },
-                "'end of file'",
             ),
             (
                 Token {
