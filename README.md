@@ -1,3 +1,7 @@
+![Build](https://github.com/Spacerulerwill/AQA-ASM/actions/workflows/build.yml/badge.svg)
+![Tests](https://github.com/Spacerulerwill/AQA-ASM/actions/workflows/tests.yml/badge.svg)
+
+
 # AQA-ASM
 
 AQA-ASM is a simple assembly simulator designed for the weird AQA A Level instruction set. This simulator operates on 8-bit unsigned integers and features 13 general-purpose 8-bit registers labeled R0 to R12, along with 256 bytes of memory for loading instructions and storing variables.
