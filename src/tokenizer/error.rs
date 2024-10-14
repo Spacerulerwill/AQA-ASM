@@ -3,15 +3,25 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum TokenizerError {
+    /// Program is too big too fit
     ProgramTooLarge(Box<ProgramTooLarge>),
+    // Literal with value > 255
     LiteralValueTooLarge(Box<LiteralValueTooLarge>),
+    /// Register denoter 'R' without a number following
     MissingNumberAfterRegisterDenoter(Box<MissingNumberAfterRegisterDenoter>),
+    /// Literal value '#' without a number following
     MissingNumberAfterLiteralDenoter(Box<MissingNumberAfterLiteralDenoter>),
+    /// Invalid register number (greater than REGISTER_COUNT)
     InvalidRegisterNumber(Box<InvalidRegisterNumber>),
+    /// A label definition inserted in an incorrect place. They may appear only after newlines or semicolons.
     InvalidLabelDefinitionLocation(Box<InvalidLabelDefinitionLocation>),
+    /// Label definition appearing more than once in seperate places
     DuplicateLabelDefinition(Box<DuplicateLabelDefinition>),
+    /// Missing a */ delimeter for a block comment
     UnterminatedBlockComment(Box<UnterminatedBlockComment>),
+    /// '/' character is an invalid comment denoter
     InvalidCommentDenoter(Box<InvalidCommentDenoter>),
+    /// Any invalid character
     UnexpectedCharacter(Box<UnexpectedCharacter>),
 }
 

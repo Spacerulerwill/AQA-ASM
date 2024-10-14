@@ -2,8 +2,6 @@
 
 mod interpreter;
 mod parser;
-mod runtime_opcode;
-mod source_opcode;
 mod tokenizer;
 
 use clap::Parser as ClapParser;
@@ -11,7 +9,7 @@ use inline_colorization::{color_green, color_red, color_reset, style_bold, style
 use interpreter::{Interpreter, REGISTER_COUNT};
 use parser::Parser;
 use std::fs;
-use tokenizer::{OperandKind, Tokenizer};
+use tokenizer::Tokenizer;
 
 /// An interpreter for the AQA assembly language
 #[derive(ClapParser, Debug)]
