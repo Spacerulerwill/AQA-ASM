@@ -1,9 +1,8 @@
 use std::{fmt, str::FromStr};
-use strum::EnumIter;
 
 /// Source opcodes are the opcode literals found in source files
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SourceOpcode {
     NOP,
     LDR,
