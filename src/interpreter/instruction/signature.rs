@@ -346,6 +346,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_signature_argument_display() {
+        let test_cases = [
+            (SignatureArgument::Register, "register"),
+            (SignatureArgument::MemoryRef, "memory reference"),
+            (SignatureArgument::Label, "label"),
+            (SignatureArgument::Literal, "literal"),
+        ];
+
+        for (arg, expected) in test_cases.iter() {
+            assert_eq!(format!("{}", arg), *expected);
+        }
+    }
+
+    #[test]
     fn test_matches_signature_mov_register_register() {
         let mut tree = SignatureTree::new();
         tree.add_signature(

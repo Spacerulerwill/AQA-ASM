@@ -131,4 +131,35 @@ mod tests {
             assert_eq!(SourceOpcode::from_str(input), expected);
         }
     }
+
+    #[test]
+    fn test_source_opcode_display() {
+        let test_cases = [
+            (SourceOpcode::NOP, "NOP"),
+            (SourceOpcode::LDR, "LDR"),
+            (SourceOpcode::STR, "STR"),
+            (SourceOpcode::ADD, "ADD"),
+            (SourceOpcode::SUB, "SUB"),
+            (SourceOpcode::MOV, "MOV"),
+            (SourceOpcode::CMP, "CMP"),
+            (SourceOpcode::B, "B"),
+            (SourceOpcode::BEQ, "BEQ"),
+            (SourceOpcode::BNE, "BNE"),
+            (SourceOpcode::BGT, "BGT"),
+            (SourceOpcode::BLT, "BLT"),
+            (SourceOpcode::AND, "AND"),
+            (SourceOpcode::ORR, "ORR"),
+            (SourceOpcode::EOR, "EOR"),
+            (SourceOpcode::MVN, "MVN"),
+            (SourceOpcode::LSL, "LSL"),
+            (SourceOpcode::LSR, "LSR"),
+            (SourceOpcode::PRINT, "PRINT"),
+            (SourceOpcode::INPUT, "INPUT"),
+            (SourceOpcode::HALT, "HALT"),
+        ];
+
+        for (opcode, expected) in test_cases.iter() {
+            assert_eq!(format!("{}", opcode), *expected);
+        }
+    }
 }

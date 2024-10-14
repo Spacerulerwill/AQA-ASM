@@ -57,3 +57,47 @@ impl Token {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_token_kind_display() {
+        let operand = TokenKind::Operand(Operand::Register(3));
+        let opcode = TokenKind::Opcode(SourceOpcode::MOV);
+        
+        assert_eq!(format!("{}", operand), format!("{}", Operand::Register(3)));
+        assert_eq!(format!("{}", opcode), format!("{}", SourceOpcode::MOV));
+        assert_eq!(format!("{}", TokenKind::Newline), "newline");
+        assert_eq!(format!("{}", TokenKind::Semicolon), "semicolon");
+        assert_eq!(format!("{}", TokenKind::Comma), "comma");
+    }
+
+    #[test]
+    fn test_token_get_debug_repr() {
+        let token_newline = Token {
+            kind: TokenKind::Newline,
+            lexeme: String::from("\n"),
+            line: 1,
+            col: 1,
+        };
+        assert_eq!(token_newline.get_token_debug_repr(), "'newline'");
+
+        let token_operand = Token {
+            kind: TokenKind::Operand(Operand::Register(3)),
+            lexeme: String::from("R3"),
+            line: 1,
+            col: 1,
+        };
+        assert_eq!(token_operand.get_token_debug_repr(), "'R3'");
+    }
+
+    #[test]
+    fn test_token_position_default() {
+        let pos = TokenPosition::default();
+        assert_eq!(pos.idx, 0);
+        assert_eq!(pos.line, 1);
+        assert_eq!(pos.col, 1);
+    }
+}
