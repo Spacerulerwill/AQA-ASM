@@ -50,7 +50,7 @@ impl<'a> Parser<'a> {
                 TokenKind::Newline | TokenKind::Semicolon => {}
                 _ => {
                     return Err(ParserError::ExpectedOpcode(Box::new(ExpectedOpcode {
-                        got: Some(token),
+                        got: token,
                     })))
                 }
             }
@@ -88,12 +88,12 @@ impl<'a> Parser<'a> {
         if let Some(TokenKind::Operand(operand)) = self.token_iter.peek().map(|token| token.kind) {
             let token = self.token_iter.next().unwrap();
             operands_and_tokens.push((operand, token));
-        }
 
-        // Consume comma seperated operands
-        while let Some(TokenKind::Comma) = self.token_iter.peek().map(|token| token.kind) {
-            let token = self.token_iter.next().unwrap();
-            operands_and_tokens.push((self.consume_operand()?, token));
+            // Consume comma seperated operands
+            while let Some(TokenKind::Comma) = self.token_iter.peek().map(|token| token.kind) {
+                let token = self.token_iter.next().unwrap();
+                operands_and_tokens.push((self.consume_operand()?, token));
+            }
         }
 
         // Consume the line delimeter, if anything else found return appropriate errors
@@ -162,4 +162,197 @@ impl<'a> Parser<'a> {
         }
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::{
+        interpreter::instruction::{
+            operand::Operand, runtime_opcode::RuntimeOpcode, source_opcode::SourceOpcode,
+        },
+        parser::ExpectedTokenKind,
+        tokenizer::{Token, TokenKind},
+    };
+
+    use super::{ExpectedOpcode, ExpectedOperand, InvalidLabel, Parser, ParserError};
+
+    fn load_test_program(program: &[u8]) -> [u8; 256] {
+        let mut memory = [0; 256];
+        memory[..program.len()].copy_from_slice(&program);
+        memory
+    }
+
+    #[test]
+    fn test_parse_valid_instructions() {}
+
+    #[test]
+    fn test_excess_line_delimeters() {
+        /*
+        PRINT R0;;;;
+        ;
+        ;
+        HALT;;;;
+        */
+        let tokens = vec![
+            Token::new(TokenKind::Opcode(SourceOpcode::PRINT), "PRINT", 1, 1),
+            Token::new(TokenKind::Operand(Operand::Register(0)), "R0", 1, 7),
+            Token::new(TokenKind::Semicolon, ";", 1, 9),
+            Token::new(TokenKind::Semicolon, ";", 1, 10),
+            Token::new(TokenKind::Semicolon, ";", 1, 11),
+            Token::new(TokenKind::Semicolon, ";", 1, 12),
+            Token::new(TokenKind::Newline, "\n", 1, 13),
+            Token::new(TokenKind::Semicolon, ";", 2, 1),
+            Token::new(TokenKind::Newline, "\n", 2, 2),
+            Token::new(TokenKind::Semicolon, ";", 3, 1),
+            Token::new(TokenKind::Newline, "\n", 3, 2),
+            Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 4, 1),
+            Token::new(TokenKind::Semicolon, ";", 4, 5),
+            Token::new(TokenKind::Semicolon, ";", 4, 6),
+            Token::new(TokenKind::Semicolon, ";", 4, 7),
+            Token::new(TokenKind::Semicolon, ";", 4, 8),
+            Token::new(TokenKind::Newline, "\n", 4, 9),
+        ];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap();
+        let expected = load_test_program(&[
+            RuntimeOpcode::PRINT_REGISTER as u8,
+            0,
+            RuntimeOpcode::HALT as u8,
+        ]);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_error_invalid_label() {
+        // Test for every branch instruction
+        for source_opcode in [
+            SourceOpcode::B,
+            SourceOpcode::BEQ,
+            SourceOpcode::BNE,
+            SourceOpcode::BGT,
+            SourceOpcode::BLT,
+        ] {
+            let tokens = vec![
+                Token::new(TokenKind::Opcode(source_opcode), "", 1, 1),
+                Token::new(TokenKind::Operand(Operand::Label), "branch", 1, 1000),
+                Token::new(TokenKind::Newline, "\n", 1, 1001),
+            ];
+            let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+            let expected = ParserError::InvalidLabel(Box::new(InvalidLabel {
+                token: Token::new(TokenKind::Operand(Operand::Label), "branch", 1, 1000),
+            }));
+            assert_eq!(result, expected)
+        }
+    }
+
+    #[test]
+    fn test_parse_error_expected_opcode() {
+        //,
+        let comma = Token::new(TokenKind::Comma, ",", 1, 1);
+        let tokens = vec![comma.clone()];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected = ParserError::ExpectedOpcode(Box::new(ExpectedOpcode { got: comma }));
+        assert_eq!(result, expected);
+        //HALT; R4
+        let register = Token::new(TokenKind::Operand(Operand::Register(4)), "R4", 1, 7);
+        let tokens = vec![
+            Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1),
+            Token::new(TokenKind::Semicolon, ";", 1, 5),
+            register.clone(),
+        ];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected = ParserError::ExpectedOpcode(Box::new(ExpectedOpcode { got: register }));
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_error_expected_operand() {
+        // MOV R4,;
+        // Expected an operand but received an incorrect token
+        let semicolon = Token::new(TokenKind::Semicolon, ";", 1, 9);
+        let tokens = vec![
+            Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1),
+            Token::new(TokenKind::Operand(Operand::Register(4)), "R4", 1, 5),
+            Token::new(TokenKind::Comma, ",", 1, 7),
+            semicolon.clone(),
+        ];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected = ParserError::ExpectedOperand(Box::new(ExpectedOperand {
+            got: Some(semicolon),
+        }));
+        assert_eq!(result, expected);
+        // MOV R4,
+        // Expected an operand but received EOF
+        let tokens = vec![
+            Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1),
+            Token::new(TokenKind::Operand(Operand::Register(4)), "R4", 1, 5),
+            Token::new(TokenKind::Comma, ",", 1, 7),
+        ];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected = ParserError::ExpectedOperand(Box::new(ExpectedOperand { got: None }));
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_error_expected_line_delimeter() {
+        // HALT HALT
+        let halt = Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 6);
+        let tokens = vec![
+            Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1),
+            halt.clone(),
+        ];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected = ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
+            candidates: vec![TokenKind::Semicolon, TokenKind::Newline],
+            got: Some(halt),
+        }));
+        assert_eq!(result, expected);
+        // HALT
+        let tokens = vec![Token::new(
+            TokenKind::Opcode(SourceOpcode::HALT),
+            "HALT",
+            1,
+            1,
+        )];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected = ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
+            candidates: vec![TokenKind::Semicolon, TokenKind::Newline],
+            got: None,
+        }));
+        assert_eq!(result, expected);
+        // HALT,
+        let comma = Token::new(TokenKind::Comma, ",", 1, 5);
+        let tokens = vec![
+            Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1),
+            comma.clone(),
+        ];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected = ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
+            candidates: vec![TokenKind::Semicolon, TokenKind::Newline],
+            got: Some(comma),
+        }));
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_error_expected_comma() {
+        // MOV R4 R5;
+        let register = Token::new(TokenKind::Operand(Operand::Register(5)), "R5", 1, 8);
+        let tokens = vec![
+            Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1),
+            Token::new(TokenKind::Operand(Operand::Register(4)), "R4", 1, 5),
+            register.clone(),
+            Token::new(TokenKind::Semicolon, ";", 1, 10),
+        ];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected = ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
+            candidates: vec![TokenKind::Comma],
+            got: Some(register),
+        }));
+        assert_eq!(result, expected)
+    }
+
+    #[test]
+    fn test_parse_error_invalid_instruction_signature() {}
 }

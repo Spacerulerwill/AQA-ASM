@@ -7,7 +7,7 @@ use crate::{
 use inline_colorization::{color_red, color_reset, style_bold, style_reset};
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ParserError {
     /// Expected an opcode but received something else
     ExpectedOpcode(Box<ExpectedOpcode>),
@@ -27,16 +27,13 @@ impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{color_red}{style_bold}")?;
         match self {
-            ParserError::ExpectedOpcode(err) => match &err.got {
-                Some(token) => write!(
-                    f,
-                    "Line {}, Column {} :: Expected instruction opcode, found token '{}'",
-                    token.line,
-                    token.col,
-                    &token.get_token_debug_repr(),
-                ),
-                None => write!(f, "Expected instruction opcode, found EOF"),
-            },
+            ParserError::ExpectedOpcode(err) => write!(
+                f,
+                "Line {}, Column {} :: Expected instruction opcode, found token '{}'",
+                err.got.line,
+                err.got.col,
+                &err.got.get_token_debug_repr(),
+            ),
             ParserError::ExpectedOperand(err) => match &err.got {
                 Some(token) => write!(
                     f,
@@ -135,28 +132,28 @@ impl fmt::Display for ParserError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ExpectedOpcode {
-    pub got: Option<Token>,
+    pub got: Token,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ExpectedOperand {
     pub got: Option<Token>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ExpectedTokenKind {
     pub candidates: Vec<TokenKind>,
     pub got: Option<Token>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct InvalidLabel {
     pub token: Token,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct InvalidInstructionSignature {
     pub source_opcode: SourceOpcode,
     pub received: Vec<Operand>,

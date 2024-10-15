@@ -50,6 +50,14 @@ impl TokenPosition {
 }
 
 impl Token {
+    pub fn new(kind: TokenKind, lexeme: &str, line: usize, col: usize) -> Self {
+        Self {
+            kind,
+            lexeme: lexeme.to_string(),
+            line,
+            col,
+        }
+    }
     pub fn get_token_debug_repr(&self) -> String {
         match &self.kind {
             TokenKind::Newline => String::from("'newline'"),
@@ -66,7 +74,7 @@ mod tests {
     fn test_token_kind_display() {
         let operand = TokenKind::Operand(Operand::Register(3));
         let opcode = TokenKind::Opcode(SourceOpcode::MOV);
-        
+
         assert_eq!(format!("{}", operand), format!("{}", Operand::Register(3)));
         assert_eq!(format!("{}", opcode), format!("{}", SourceOpcode::MOV));
         assert_eq!(format!("{}", TokenKind::Newline), "newline");
