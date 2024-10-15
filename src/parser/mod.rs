@@ -43,9 +43,9 @@ impl<'a> Parser<'a> {
             If we see a newline or semicolon we can ignore them as we don't mind
             erroneous line delimeters. If we find any other token, there has been an error.
             */
-            match &token.kind {
+            match token.kind {
                 TokenKind::Opcode(opcode) => {
-                    self.parse_opcode(*opcode)?;
+                    self.parse_opcode(token, opcode)?;
                 }
                 TokenKind::Newline | TokenKind::Semicolon => {}
                 _ => {
@@ -81,7 +81,11 @@ impl<'a> Parser<'a> {
         *current = val;
     }
 
-    fn parse_opcode(&mut self, source_opcode: SourceOpcode) -> Result<(), ParserError> {
+    fn parse_opcode(
+        &mut self,
+        opcode_token: Token,
+        source_opcode: SourceOpcode,
+    ) -> Result<(), ParserError> {
         let mut operands_and_tokens = Vec::new();
 
         // Consume first operand, doesn't need a comma before it
@@ -155,6 +159,7 @@ impl<'a> Parser<'a> {
         } else {
             return Err(ParserError::InvalidInstructionSignature(Box::new(
                 InvalidInstructionSignature {
+                    opcode_token,
                     source_opcode,
                     received: operands,
                 },
@@ -170,10 +175,13 @@ mod tests {
 
     use crate::{
         interpreter::instruction::{
-            operand::Operand, runtime_opcode::RuntimeOpcode, source_opcode::SourceOpcode,
+            operand::Operand,
+            runtime_opcode::RuntimeOpcode,
+            signature::{SignatureArgument, SIGNATURE_TREE},
+            source_opcode::SourceOpcode,
         },
-        parser::ExpectedTokenKind,
-        tokenizer::{Token, TokenKind},
+        parser::{ExpectedTokenKind, InvalidInstructionSignature},
+        tokenizer::{LabelDefinition, Token, TokenKind},
     };
 
     use super::{ExpectedOpcode, ExpectedOperand, InvalidLabel, Parser, ParserError};
@@ -185,7 +193,73 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_valid_instructions() {}
+    fn test_parse_valid_instructions() {
+        for source_opcode in [
+            SourceOpcode::NOP,
+            SourceOpcode::LDR,
+            SourceOpcode::STR,
+            SourceOpcode::ADD,
+            SourceOpcode::SUB,
+            SourceOpcode::MOV,
+            SourceOpcode::CMP,
+            SourceOpcode::B,
+            SourceOpcode::BEQ,
+            SourceOpcode::BNE,
+            SourceOpcode::BGT,
+            SourceOpcode::BLT,
+            SourceOpcode::AND,
+            SourceOpcode::ORR,
+            SourceOpcode::EOR,
+            SourceOpcode::MVN,
+            SourceOpcode::LSL,
+            SourceOpcode::LSR,
+            SourceOpcode::PRINT,
+            SourceOpcode::INPUT,
+            SourceOpcode::HALT,
+        ] {
+            let operand_combinations =
+                SIGNATURE_TREE.get_all_valid_operand_combinations_for_source_opcode(source_opcode);
+            for (runtime_opcode, combination) in operand_combinations {
+                // Token stream for the valid operand call
+                let mut tokens = vec![Token::new(TokenKind::Opcode(source_opcode), "test", 1, 1)];
+                for (idx, operand) in combination.iter().enumerate() {
+                    let token_kind = match operand {
+                        SignatureArgument::Register => TokenKind::Operand(Operand::Register(127)),
+                        SignatureArgument::MemoryRef => TokenKind::Operand(Operand::MemoryRef(127)),
+                        SignatureArgument::Label => TokenKind::Operand(Operand::Label),
+                        SignatureArgument::Literal => TokenKind::Operand(Operand::Literal(127)),
+                    };
+                    tokens.push(Token::new(token_kind, "test", 1, 1));
+                    if idx < combination.len() - 1 {
+                        tokens.push(Token::new(TokenKind::Comma, "", 1, 1));
+                    }
+                }
+                tokens.push(Token::new(TokenKind::Semicolon, "", 1, 1));
+
+                // What the expected binary should look like
+                let mut expected = [0; 256];
+                expected[0] = runtime_opcode as u8;
+                let mut idx = 1;
+                for _ in combination {
+                    expected[idx] = 127;
+                    idx += 1;
+                }
+
+                // Check they are the same
+                let mut labels = HashMap::new();
+                labels.insert(
+                    String::from("test"),
+                    LabelDefinition {
+                        byte: 127,
+                        line: 1,
+                        col: 1,
+                    },
+                );
+                let result = Parser::parse(tokens, labels).unwrap();
+                assert_eq!(result, expected);
+            }
+        }
+    }
 
     #[test]
     fn test_excess_line_delimeters() {
@@ -354,5 +428,57 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_error_invalid_instruction_signature() {}
+    fn test_parse_error_invalid_instruction_signature() {
+        // Instruction with 0 operands given some
+        let opcode = Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1);
+        let tokens = vec![
+            opcode.clone(),
+            Token::new(TokenKind::Operand(Operand::Register(0)), "R0", 1, 1),
+            Token::new(TokenKind::Semicolon, ";", 1, 1),
+        ];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected =
+            ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
+                opcode_token: opcode,
+                source_opcode: SourceOpcode::HALT,
+                received: vec![Operand::Register(0)],
+            }));
+        assert_eq!(result, expected);
+
+        // Instruciton with multiple operands given none
+        let opcode = Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1);
+        let tokens = vec![opcode.clone(), Token::new(TokenKind::Semicolon, ";", 1, 1)];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected =
+            ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
+                opcode_token: opcode,
+                source_opcode: SourceOpcode::MOV,
+                received: vec![],
+            }));
+        assert_eq!(result, expected);
+
+        // Instruction given incorrect amount
+        let opcode = Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1);
+        let tokens = vec![
+            opcode.clone(),
+            Token::new(TokenKind::Operand(Operand::Register(0)), "R0", 1, 1),
+            Token::new(TokenKind::Comma, ",", 1, 1),
+            Token::new(TokenKind::Operand(Operand::Register(0)), "R0", 1, 1),
+            Token::new(TokenKind::Comma, ",", 1, 1),
+            Token::new(TokenKind::Operand(Operand::Register(0)), "R0", 1, 1),
+            Token::new(TokenKind::Semicolon, ";", 1, 1),
+        ];
+        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let expected =
+            ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
+                opcode_token: opcode,
+                source_opcode: SourceOpcode::MOV,
+                received: vec![
+                    Operand::Register(0),
+                    Operand::Register(0),
+                    Operand::Register(0),
+                ],
+            }));
+        assert_eq!(result, expected);
+    }
 }

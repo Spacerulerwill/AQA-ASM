@@ -312,15 +312,15 @@ impl SignatureTree {
     pub fn get_all_valid_operand_combinations_for_source_opcode(
         &self,
         source_opcode: SourceOpcode,
-    ) -> Vec<Vec<SignatureArgument>> {
+    ) -> Vec<(RuntimeOpcode, Vec<SignatureArgument>)> {
         fn dfs(
             node: &SignatureTreeNode,
             current_path: &mut Vec<SignatureArgument>,
-            combinations: &mut Vec<Vec<SignatureArgument>>,
+            combinations: &mut Vec<(RuntimeOpcode, Vec<SignatureArgument>)>,
         ) {
             // If we reached a node with a runtime opcode, store the current path as a valid combination
-            if node.runtime_opcode.is_some() {
-                combinations.push(current_path.clone());
+            if let Some(runtime_opcode) = node.runtime_opcode {
+                combinations.push((runtime_opcode, current_path.clone()));
             }
 
             // DFS for each child
@@ -455,7 +455,7 @@ mod tests {
         tree.add_signature(SourceOpcode::HALT, &[], RuntimeOpcode::HALT);
         assert_eq!(
             tree.get_all_valid_operand_combinations_for_source_opcode(SourceOpcode::HALT),
-            vec![vec![]]
+            vec![(RuntimeOpcode::HALT, vec![])]
         );
     }
 
@@ -470,7 +470,10 @@ mod tests {
         );
         assert_eq!(
             tree.get_all_valid_operand_combinations_for_source_opcode(SourceOpcode::HALT),
-            vec![vec![], vec![SignatureArgument::Register]]
+            vec![
+                (RuntimeOpcode::HALT, vec![]),
+                (RuntimeOpcode::HALT, vec![SignatureArgument::Register])
+            ]
         );
     }
 
@@ -496,10 +499,16 @@ mod tests {
         assert_eq!(
             tree.get_all_valid_operand_combinations_for_source_opcode(SourceOpcode::HALT),
             vec![
-                vec![],
-                vec![SignatureArgument::Register],
-                vec![SignatureArgument::Register, SignatureArgument::Register],
-                vec![SignatureArgument::Register, SignatureArgument::Label],
+                (RuntimeOpcode::HALT, vec![]),
+                (RuntimeOpcode::HALT, vec![SignatureArgument::Register]),
+                (
+                    RuntimeOpcode::HALT,
+                    vec![SignatureArgument::Register, SignatureArgument::Register]
+                ),
+                (
+                    RuntimeOpcode::HALT,
+                    vec![SignatureArgument::Register, SignatureArgument::Label]
+                ),
             ]
         );
     }

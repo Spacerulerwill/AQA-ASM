@@ -5,7 +5,7 @@
 /// MOV R5, R5 => MOV_REGISTER 5 5    
 /// MOP R5, #5 => MOV_LITERAL 5 5    
 #[allow(non_camel_case_types)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum RuntimeOpcode {
     NOP,
     LDR,

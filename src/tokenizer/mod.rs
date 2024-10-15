@@ -152,12 +152,12 @@ impl<'a> Tokenizer<'a> {
         if lexeme == "\n" {
             lexeme = String::from("\\n");
         }
-        self.tokens.push(Token {
-            kind: kind,
-            lexeme: lexeme,
-            line: self.prev_pos.line,
-            col: self.prev_pos.col,
-        });
+        self.tokens.push(Token::new(
+            kind,
+            &lexeme,
+            self.prev_pos.line,
+            self.prev_pos.col,
+        ));
         // Increase the program byte count if its an operand or opcode
         match kind {
             TokenKind::Opcode(_) | TokenKind::Operand(_) => self.inc_program_byte_count()?,
@@ -517,9 +517,9 @@ NOP",
 
         assert_eq!(
             Tokenizer::tokenize("R12345", 4).unwrap_err(),
-            TokenizerError::LiteralValueTooLarge(Box::new(LiteralValueTooLarge { 
-                value_string: String::from("12345"), 
-                line: 1, 
+            TokenizerError::LiteralValueTooLarge(Box::new(LiteralValueTooLarge {
+                value_string: String::from("12345"),
+                line: 1,
                 col: 1
             }))
         )

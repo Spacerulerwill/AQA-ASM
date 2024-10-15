@@ -106,7 +106,7 @@ impl fmt::Display for ParserError {
                 // Convert each inner Vec<SignatureArgument> to a comma-separated string
                 let potential_signatures_strings: Vec<String> = potential_signatures
                     .iter()
-                    .map(|signature| {
+                    .map(|(_, signature)| {
                         signature
                             .iter()
                             .map(|arg| arg.to_string()) // Convert each SignatureArgument to a string
@@ -117,7 +117,9 @@ impl fmt::Display for ParserError {
 
                 write!(
                     f,
-                    "'{} {}' is not a valid signature! Potential signatures are listed below:\n{}",
+                    "Line {}, Column {} :: '{} {}' is not a valid signature! Potential signatures are listed below:\n{}",
+                    err.opcode_token.line,
+                    err.opcode_token.col,
                     err.source_opcode,
                     operand_type_strings.join(", "),
                     potential_signatures_strings
@@ -155,6 +157,7 @@ pub struct InvalidLabel {
 
 #[derive(Debug, PartialEq)]
 pub struct InvalidInstructionSignature {
+    pub opcode_token: Token,
     pub source_opcode: SourceOpcode,
     pub received: Vec<Operand>,
 }

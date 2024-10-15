@@ -71,6 +71,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_token_new() {
+        let token = Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1);
+
+        assert_eq!(token.kind, TokenKind::Opcode(SourceOpcode::MOV));
+        assert_eq!(token.lexeme, "MOV");
+        assert_eq!(token.line, 1);
+        assert_eq!(token.col, 1);
+    }
+
+    #[test]
     fn test_token_kind_display() {
         let operand = TokenKind::Operand(Operand::Register(3));
         let opcode = TokenKind::Opcode(SourceOpcode::MOV);
@@ -84,20 +94,9 @@ mod tests {
 
     #[test]
     fn test_token_get_debug_repr() {
-        let token_newline = Token {
-            kind: TokenKind::Newline,
-            lexeme: String::from("\n"),
-            line: 1,
-            col: 1,
-        };
+        let token_newline = Token::new(TokenKind::Newline, "\n", 1, 1);
         assert_eq!(token_newline.get_token_debug_repr(), "'newline'");
-
-        let token_operand = Token {
-            kind: TokenKind::Operand(Operand::Register(3)),
-            lexeme: String::from("R3"),
-            line: 1,
-            col: 1,
-        };
+        let token_operand = Token::new(TokenKind::Operand(Operand::Register(3)), "R3", 1, 1);
         assert_eq!(token_operand.get_token_debug_repr(), "'R3'");
     }
 
