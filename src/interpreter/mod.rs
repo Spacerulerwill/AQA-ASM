@@ -3,38 +3,74 @@ pub use error::*;
 use instruction::runtime_opcode::RuntimeOpcode;
 pub mod instruction;
 
-use std::io;
+use std::io::{self, BufRead, BufReader, Write};
 
 // We get a predefined amount of registers allocated
 pub const REGISTER_COUNT: u8 = 13;
 
 #[derive(Debug)]
-pub struct Interpreter<'a> {
+pub struct Interpreter<'a, R: BufRead, W: Write> {
     memory: &'a mut [u8; 256],
     registers: &'a mut [u8; REGISTER_COUNT as usize],
     program_bytes: usize,
     program_counter: usize,
     comparison_result: u8,
     underflow: bool,
+    reader: R,
+    writer: W,
 }
 
-impl<'a> Interpreter<'a> {
-    // Create a new Tokenizer instance with the given input and tabsize
+impl<'a> Interpreter<'a, BufReader<io::Stdin>, io::Stdout> {
     pub fn interpret(
         memory: &'a mut [u8; 256],
         registers: &'a mut [u8; REGISTER_COUNT as usize],
         program_bytes: usize,
     ) -> Result<Self, RuntimeError> {
+        let stdin = BufReader::new(io::stdin());
+        let stdout = std::io::stdout();
+        Interpreter::interpret_custom_io(memory, registers, program_bytes, stdin, stdout)
+    }
+}
+
+impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
+    pub fn interpret_custom_io(
+        memory: &'a mut [u8; 256],
+        registers: &'a mut [u8; REGISTER_COUNT as usize],
+        program_bytes: usize,
+        reader: R,
+        writer: W,
+    ) -> Result<Self, RuntimeError> {
         let mut interpreter = Interpreter {
-            memory: memory,
-            registers: registers,
-            program_bytes: program_bytes,
+            memory,
+            registers,
+            program_bytes,
             program_counter: 0,
             comparison_result: 0,
             underflow: false,
+            reader,
+            writer
         };
+
         interpreter.internal_interpret()?;
         Ok(interpreter)
+    }
+
+    pub fn read_line(&mut self) -> String {
+        let mut input = String::new();
+        self.reader
+            .read_line(&mut input)
+            .expect("Failed to read line");
+                input.trim_end().to_string()
+    }
+
+    pub fn write_line(&mut self, output: &str) {
+        self.writer
+            .write_all(output.as_bytes())
+            .expect("Failed to write line");
+        self.writer
+            .write_all(b"\n")
+            .expect("Failed to write newline");
+        self.writer.flush().expect("Failed to flush writer");
     }
 
     fn internal_interpret(&mut self) -> Result<(), RuntimeError> {
@@ -113,13 +149,9 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn take_u8_input() -> u8 {
+    fn take_u8_input(&mut self) -> u8 {
         loop {
-            let mut input = String::new();
-            io::stdin()
-                .read_line(&mut input)
-                .expect("Failed to read line");
-
+            let input = self.read_line();
             if let Ok(val) = input.trim().parse() {
                 return val;
             }
@@ -345,25 +377,26 @@ impl<'a> Interpreter<'a> {
 
     fn interpret_print_register(&mut self) -> Result<(), RuntimeError> {
         let register = self.read_next_memory_address()?;
-        println!("{}", self.registers[register as usize]);
+        self.write_line(&format!("{}", self.registers[register as usize]));
         Ok(())
     }
 
     fn interpret_print_memory(&mut self) -> Result<(), RuntimeError> {
         let memory_ref = self.read_next_memory_address()?;
-        println!("{}", self.read_memory_address(memory_ref as usize)?);
+        self.write_line(&format!("{}", self.read_memory_address(memory_ref as usize)?));
         Ok(())
     }
 
     fn interpret_input_register(&mut self) -> Result<(), RuntimeError> {
         let register = self.read_next_memory_address()?;
-        self.registers[register as usize] = Self::take_u8_input();
+        self.registers[register as usize] = self.take_u8_input();
         Ok(())
     }
 
     fn interpret_input_memory(&mut self) -> Result<(), RuntimeError> {
         let memory_ref = self.read_next_memory_address()?;
-        self.write_memory_address(Self::take_u8_input(), memory_ref as usize)?;
+        let value = self.take_u8_input();
+        self.write_memory_address(value, memory_ref as usize)?;
         Ok(())
     }
 }
@@ -371,6 +404,7 @@ impl<'a> Interpreter<'a> {
 #[cfg(test)]
 mod tests {
     use instruction::runtime_opcode::RuntimeOpcode;
+    use io::Cursor;
 
     use super::*;
 
@@ -595,6 +629,8 @@ mod tests {
             registers: &mut registers,
             program_counter: 0,
             underflow: false,
+            reader: BufReader::new(io::stdin()),
+            writer: io::stdout()
         };
         interpreter.internal_interpret().unwrap();
         assert_eq!(interpreter.program_counter, 4);
@@ -624,6 +660,8 @@ mod tests {
             registers: &mut registers,
             program_counter: 0,
             underflow: false,
+            reader: BufReader::new(io::stdin()),
+            writer: io::stdout()
         };
         interpreter.internal_interpret().unwrap();
         assert_eq!(interpreter.program_counter, 4);
@@ -653,6 +691,8 @@ mod tests {
             registers: &mut registers,
             program_counter: 0,
             underflow: false,
+            reader: BufReader::new(io::stdin()),
+            writer: io::stdout()
         };
         interpreter.internal_interpret().unwrap();
         assert_eq!(interpreter.program_counter, 4);
@@ -689,6 +729,8 @@ mod tests {
             registers: &mut registers,
             program_counter: 0,
             underflow: true,
+            reader: BufReader::new(io::stdin()),
+            writer: io::stdout()
         };
         interpreter.internal_interpret().unwrap();
         assert_eq!(interpreter.program_counter, 4);
@@ -837,6 +879,108 @@ mod tests {
         Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
         assert_eq!(registers[0], 0b00001100);
         assert_eq!(registers[1], 0b00110000);
+    }
+
+    #[test]
+    fn test_interpret_print_register() {
+        // Setup
+        let program = [
+            RuntimeOpcode::PRINT_REGISTER as u8,
+            0,
+            RuntimeOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(&program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+        registers[0] = 42;
+
+        // Create a mock output writer
+        let inputs = &[];
+        let mut output: Vec<u8> = Vec::new();
+
+        let reader = BufReader::new(Cursor::new(inputs));
+        let writer = Cursor::new(&mut output);
+
+        Interpreter::interpret_custom_io(&mut memory, &mut registers, program.len(), reader, writer).unwrap();
+
+        // Check
+        let output_str = String::from_utf8(output).unwrap();
+        assert_eq!(output_str.trim(), "42");
+    }
+
+    #[test]
+    fn test_print_memory() {
+        // Setup
+        let program = [
+            RuntimeOpcode::PRINT_MEMORY as u8,
+            0,
+            RuntimeOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(&program);
+        memory[program.len()] = 42;
+        let mut registers = [0; REGISTER_COUNT as usize];
+
+        // Create a mock output writer
+        let inputs = &[];
+        let mut output: Vec<u8> = Vec::new();
+
+        let reader = BufReader::new(Cursor::new(inputs));
+        let writer = Cursor::new(&mut output);
+
+        Interpreter::interpret_custom_io(&mut memory, &mut registers, program.len(), reader, writer).unwrap();
+
+        // Check
+        let output_str = String::from_utf8(output).unwrap();
+        assert_eq!(output_str.trim(), "42");
+    }
+
+    #[test]
+    fn test_interpret_input_register() {
+        // Setup
+        let program = [
+            RuntimeOpcode::INPUT_REGISTER as u8,
+            0,
+            RuntimeOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(&program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+
+        let input = String::from("99");
+        let inputs = input.as_bytes();
+        let mut output: Vec<u8> = Vec::new();
+
+        let reader = BufReader::new(Cursor::new(inputs));
+        let writer = Cursor::new(&mut output);
+
+        // Execute the interpreter
+        Interpreter::interpret_custom_io(&mut memory, &mut registers, program.len(), reader, writer).unwrap();
+
+        // Check that the memory has the expected value
+        assert_eq!(registers[0], 99); // Ensure memory at address 0 has the input value
+    }
+
+    #[test]
+    fn test_interpret_input_memory() {
+        // Setup
+        let program = [
+            RuntimeOpcode::INPUT_MEMORY as u8,
+            0,
+            RuntimeOpcode::HALT as u8,
+        ];
+        let mut memory = load_test_program(&program);
+        let mut registers = [0; REGISTER_COUNT as usize];
+
+        let input = String::from("150");
+        let inputs = input.as_bytes();
+        let mut output: Vec<u8> = Vec::new();
+
+        let reader = BufReader::new(Cursor::new(inputs));
+        let writer = Cursor::new(&mut output);
+
+        // Execute the interpreter
+        Interpreter::interpret_custom_io(&mut memory, &mut registers, program.len(), reader, writer).unwrap();
+
+        // Check that the memory has the expected value
+        assert_eq!(memory[program.len()], 150); // Ensure memory at address 0 has the input value
     }
 
     #[test]
