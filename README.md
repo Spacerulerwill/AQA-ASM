@@ -1,6 +1,7 @@
 ![Build](https://github.com/Spacerulerwill/AQA-ASM/actions/workflows/build.yml/badge.svg)
 ![Tests](https://github.com/Spacerulerwill/AQA-ASM/actions/workflows/tests.yml/badge.svg)
 [![codecov](https://codecov.io/gh/Spacerulerwill/AQA-ASM/graph/badge.svg?token=XXWP13W957)](https://codecov.io/gh/Spacerulerwill/AQA-ASM)
+[![](https://tokei.rs/b1/github/Spacerulerwill/AQA-ASM)](https://github.com/Spacerulerwill/AQA-ASM)
 
 
 # AQA-ASM
