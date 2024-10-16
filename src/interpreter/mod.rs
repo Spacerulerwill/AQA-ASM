@@ -48,7 +48,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
             comparison_result: 0,
             underflow: false,
             reader,
-            writer
+            writer,
         };
 
         interpreter.internal_interpret()?;
@@ -60,7 +60,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         self.reader
             .read_line(&mut input)
             .expect("Failed to read line");
-                input.trim_end().to_string()
+        input.trim_end().to_string()
     }
 
     pub fn write_line(&mut self, output: &str) {
@@ -383,7 +383,10 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
 
     fn interpret_print_memory(&mut self) -> Result<(), RuntimeError> {
         let memory_ref = self.read_next_memory_address()?;
-        self.write_line(&format!("{}", self.read_memory_address(memory_ref as usize)?));
+        self.write_line(&format!(
+            "{}",
+            self.read_memory_address(memory_ref as usize)?
+        ));
         Ok(())
     }
 
@@ -630,7 +633,7 @@ mod tests {
             program_counter: 0,
             underflow: false,
             reader: BufReader::new(io::stdin()),
-            writer: io::stdout()
+            writer: io::stdout(),
         };
         interpreter.internal_interpret().unwrap();
         assert_eq!(interpreter.program_counter, 4);
@@ -661,7 +664,7 @@ mod tests {
             program_counter: 0,
             underflow: false,
             reader: BufReader::new(io::stdin()),
-            writer: io::stdout()
+            writer: io::stdout(),
         };
         interpreter.internal_interpret().unwrap();
         assert_eq!(interpreter.program_counter, 4);
@@ -692,7 +695,7 @@ mod tests {
             program_counter: 0,
             underflow: false,
             reader: BufReader::new(io::stdin()),
-            writer: io::stdout()
+            writer: io::stdout(),
         };
         interpreter.internal_interpret().unwrap();
         assert_eq!(interpreter.program_counter, 4);
@@ -730,7 +733,7 @@ mod tests {
             program_counter: 0,
             underflow: true,
             reader: BufReader::new(io::stdin()),
-            writer: io::stdout()
+            writer: io::stdout(),
         };
         interpreter.internal_interpret().unwrap();
         assert_eq!(interpreter.program_counter, 4);
@@ -900,7 +903,14 @@ mod tests {
         let reader = BufReader::new(Cursor::new(inputs));
         let writer = Cursor::new(&mut output);
 
-        Interpreter::interpret_custom_io(&mut memory, &mut registers, program.len(), reader, writer).unwrap();
+        Interpreter::interpret_custom_io(
+            &mut memory,
+            &mut registers,
+            program.len(),
+            reader,
+            writer,
+        )
+        .unwrap();
 
         // Check
         let output_str = String::from_utf8(output).unwrap();
@@ -926,7 +936,14 @@ mod tests {
         let reader = BufReader::new(Cursor::new(inputs));
         let writer = Cursor::new(&mut output);
 
-        Interpreter::interpret_custom_io(&mut memory, &mut registers, program.len(), reader, writer).unwrap();
+        Interpreter::interpret_custom_io(
+            &mut memory,
+            &mut registers,
+            program.len(),
+            reader,
+            writer,
+        )
+        .unwrap();
 
         // Check
         let output_str = String::from_utf8(output).unwrap();
@@ -952,7 +969,14 @@ mod tests {
         let writer = Cursor::new(&mut output);
 
         // Execute the interpreter
-        Interpreter::interpret_custom_io(&mut memory, &mut registers, program.len(), reader, writer).unwrap();
+        Interpreter::interpret_custom_io(
+            &mut memory,
+            &mut registers,
+            program.len(),
+            reader,
+            writer,
+        )
+        .unwrap();
 
         // Check that the memory has the expected value
         assert_eq!(registers[0], 99); // Ensure memory at address 0 has the input value
@@ -977,7 +1001,14 @@ mod tests {
         let writer = Cursor::new(&mut output);
 
         // Execute the interpreter
-        Interpreter::interpret_custom_io(&mut memory, &mut registers, program.len(), reader, writer).unwrap();
+        Interpreter::interpret_custom_io(
+            &mut memory,
+            &mut registers,
+            program.len(),
+            reader,
+            writer,
+        )
+        .unwrap();
 
         // Check that the memory has the expected value
         assert_eq!(memory[program.len()], 150); // Ensure memory at address 0 has the input value
