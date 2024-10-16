@@ -165,3 +165,9 @@ pub struct UnexpectedCharacter {
     pub line: usize,
     pub col: usize,
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_display_tokenizer_error() {}
+}

@@ -29,7 +29,7 @@ impl fmt::Display for ParserError {
         match self {
             ParserError::ExpectedOpcode(err) => write!(
                 f,
-                "Line {}, Column {} :: Expected instruction opcode, found token '{}'",
+                "Line {}, Column {} :: Expected instruction opcode but found token {}",
                 err.got.line,
                 err.got.col,
                 &err.got.get_token_debug_repr(),
@@ -37,12 +37,12 @@ impl fmt::Display for ParserError {
             ParserError::ExpectedOperand(err) => match &err.got {
                 Some(token) => write!(
                     f,
-                    "Line {}, Column {} :: Expected operand, found token '{}'",
+                    "Line {}, Column {} :: Expected operand but found token {}",
                     token.line,
                     token.col,
                     &token.get_token_debug_repr()
                 ),
-                None => write!(f, "Expected operand, found EOF"),
+                None => write!(f, "Expected operand but found EOF"),
             },
             ParserError::ExpectedTokenKind(err) => {
                 assert!(err.candidates.len() > 0);
@@ -50,7 +50,7 @@ impl fmt::Display for ParserError {
                     match &err.got {
                         Some(token) => write!(
                             f,
-                            "Line {}, Column {} :: Expected {} but found token '{}'",
+                            "Line {}, Column {} :: Expected {} but found token {}",
                             token.line,
                             token.col,
                             err.candidates[0],
@@ -62,7 +62,7 @@ impl fmt::Display for ParserError {
                     match &err.got {
                         Some(token) => write!(
                             f,
-                            "Line {}, Column {} :: Expected {} or {} but found token '{}'",
+                            "Line {}, Column {} :: Expected {} or {} but found token {}",
                             token.line,
                             token.col,
                             err.candidates[0],
@@ -82,8 +82,8 @@ impl fmt::Display for ParserError {
                         .map(|c| format!("• {}\n", c))
                         .collect();
                     match &err.got {
-                        Some(token) => write!(f, "Line {}, Column {} :: Expected one of the following:\n{}but found token '{}'", token.line, token.col, &candidates_string, &token.get_token_debug_repr()),
-                        None => write!(f, "Expected one of the following:\n{} but found EOF", &candidates_string)
+                        Some(token) => write!(f, "Line {}, Column {} :: Expected one of the following:\n{}but found token {}", token.line, token.col, &candidates_string, &token.get_token_debug_repr()),
+                        None => write!(f, "Expected one of the following:\n{}but found EOF", &candidates_string)
                     }
                 }
             }
@@ -109,10 +109,10 @@ impl fmt::Display for ParserError {
                     .map(|(_, signature)| {
                         signature
                             .iter()
-                            .map(|arg| arg.to_string()) // Convert each SignatureArgument to a string
+                            .map(|arg| arg.to_string())
                             .collect::<Vec<String>>() // Collect to a Vec<String>
-                            .join(", ")
-                    }) // Join the inner Vec<String> into a comma-separated string
+                            .join(", ") // Ensure this does not add unwanted spaces
+                    })
                     .collect();
 
                 write!(
@@ -160,4 +160,129 @@ pub struct InvalidInstructionSignature {
     pub opcode_token: Token,
     pub source_opcode: SourceOpcode,
     pub received: Vec<Operand>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        ExpectedOpcode, ExpectedOperand, ExpectedTokenKind, InvalidInstructionSignature,
+        InvalidLabel, ParserError,
+    };
+    use crate::{
+        interpreter::instruction::{operand::Operand, source_opcode::SourceOpcode},
+        tokenizer::{Token, TokenKind},
+    };
+    use inline_colorization::{color_red, color_reset, style_bold, style_reset};
+
+    #[test]
+    fn test_display_parser_error() {
+        for (input, expected) in [
+            (
+                ParserError::ExpectedOpcode(Box::new(ExpectedOpcode {
+                    got: Token::new(TokenKind::Comma, ",", 12, 5),
+                })),
+                "Line 12, Column 5 :: Expected instruction opcode but found token ','",
+            ),
+            (
+                ParserError::ExpectedOperand(Box::new(ExpectedOperand { got: None })),
+                "Expected operand but found EOF",
+            ),
+            (
+                ParserError::ExpectedOperand(Box::new(ExpectedOperand {
+                    got: Some(Token::new(TokenKind::Semicolon, ";", 4444, 1)),
+                })),
+                "Line 4444, Column 1 :: Expected operand but found token ';'",
+            ),
+            (
+                ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
+                    candidates: vec![TokenKind::Comma],
+                    got: None,
+                })),
+                "Expected comma but found EOF",
+            ),
+            (
+                ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
+                    candidates: vec![TokenKind::Comma],
+                    got: Some(Token::new(TokenKind::Semicolon, ";", 123, 22)),
+                })),
+                "Line 123, Column 22 :: Expected comma but found token ';'",
+            ),
+            (
+                ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
+                    candidates: vec![TokenKind::Comma, TokenKind::Semicolon],
+                    got: None,
+                })),
+                "Expected comma or semicolon but found EOF",
+            ),
+            (
+                ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
+                    candidates: vec![TokenKind::Comma, TokenKind::Semicolon],
+                    got: Some(Token::new(
+                        TokenKind::Operand(Operand::Register(0)),
+                        "R0",
+                        1,
+                        100,
+                    )),
+                })),
+                "Line 1, Column 100 :: Expected comma or semicolon but found token 'R0'",
+            ),
+            (
+                ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
+                    candidates: vec![TokenKind::Comma, TokenKind::Semicolon, TokenKind::Newline],
+                    got: None,
+                })),
+                "Expected one of the following:
+• comma
+• semicolon
+• newline
+but found EOF",
+            ),
+            (
+                ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
+                    candidates: vec![TokenKind::Comma, TokenKind::Semicolon, TokenKind::Newline],
+                    got: Some(Token::new(
+                        TokenKind::Operand(Operand::Label),
+                        "label",
+                        12764,
+                        505,
+                    )),
+                })),
+                "Line 12764, Column 505 :: Expected one of the following:
+• comma
+• semicolon
+• newline
+but found token 'label'",
+            ),
+            (
+                ParserError::InvalidLabel(Box::new(InvalidLabel {
+                    token: Token::new(TokenKind::Operand(Operand::Label), "label", 104, 0),
+                })),
+                "Line 104, Column 0 :: No label exists with name: 'label'",
+            ),
+            (
+                ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
+                    opcode_token: Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 50, 50),
+                    source_opcode: SourceOpcode::HALT,
+                    received: vec![Operand::Register(0)],
+                })),
+                "Line 50, Column 50 :: 'HALT register' is not a valid signature! Potential signatures are listed below:
+• HALT ",
+            ),
+            (
+                ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
+                    opcode_token: Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 500, 20),
+                    source_opcode: SourceOpcode::MOV,
+                    received: vec![Operand::Register(0), Operand::Register(0), Operand::Register(0)],
+                })),
+                "Line 500, Column 20 :: 'MOV register, register, register' is not a valid signature! Potential signatures are listed below:
+• MOV register, register
+• MOV register, literal",
+            ),
+        ] {
+            assert_eq!(
+                input.to_string(),
+                format!("{color_red}{style_bold}{expected}{color_reset}{style_reset}")
+            );
+        }
+    }
 }
