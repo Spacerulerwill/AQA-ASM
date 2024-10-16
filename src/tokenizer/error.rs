@@ -33,7 +33,7 @@ impl fmt::Display for TokenizerError {
         match self {
             TokenizerError::ProgramTooLarge(err) => write!(
                 f,
-                "Line {}, Column {} :: Program exceeds memory limit (255 bytes)",
+                "Line {}, Column {} :: Program exceeds memory limit (256 bytes)",
                 err.line,
                 err.col
             ),
@@ -169,5 +169,88 @@ pub struct UnexpectedCharacter {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_display_tokenizer_error() {}
+    fn test_display_tokenizer_error() {
+        use super::*;
+
+        for (input, expected) in [
+            (
+                TokenizerError::ProgramTooLarge(Box::new(ProgramTooLarge { line: 1, col: 2 })),
+                "Line 1, Column 2 :: Program exceeds memory limit (256 bytes)",
+            ),
+            (
+                TokenizerError::LiteralValueTooLarge(Box::new(LiteralValueTooLarge {
+                    value_string: String::from("12345"),
+                    line: 36,
+                    col: 7778,
+                })),
+                "Line 36, Column 7778 :: Literal value '12345' too large (max value of 255)",
+            ),
+            (
+                TokenizerError::MissingNumberAfterRegisterDenoter(Box::new(
+                    MissingNumberAfterRegisterDenoter {
+                        line: 1919,
+                        col: 6969,
+                    },
+                )),
+                "Line 1919, Column 6969 :: Missing number after register denoter 'R'",
+            ),
+            (
+                TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
+                    MissingNumberAfterLiteralDenoter { line: 3, col: 4 },
+                )),
+                "Line 3, Column 4 :: Missing number after literal denoter '#'",
+            ),
+            (
+                TokenizerError::InvalidRegisterNumber(Box::new(InvalidRegisterNumber {
+                    value: 0,
+                    line: 13,
+                    col: 8,
+                })),
+                "Line 13, Column 8 :: Invalid register 'R0' (must be in range 0-12 inclusive)",
+            ),
+            (
+                TokenizerError::InvalidLabelDefinitionLocation(Box::new(InvalidLabelDefinitionLocation {
+                    label_name: String::from("main"),
+                    line: 10,
+                    col: 5,
+                })),
+                "Line 10, Column 5 :: Invalid label definition location for label 'main', labels may only appear after line delimiters (newline or ';')",
+            ),
+            (
+                TokenizerError::DuplicateLabelDefinition(Box::new(DuplicateLabelDefinition {
+                    label_name: String::from("loop"),
+                    line: 6,
+                    col: 14,
+                })),
+                "Line 6, Column 14 :: Definition for label 'loop' already exists",
+            ),
+            (
+                TokenizerError::UnterminatedBlockComment(Box::new(UnterminatedBlockComment {
+                    line: 15,
+                    col: 20,
+                })),
+                "Line 15, Column 20 :: Unterminated block comment begins here",
+            ),
+            (
+                TokenizerError::InvalidCommentDenoter(Box::new(InvalidCommentDenoter {
+                    line: 4,
+                    col: 9,
+                })),
+                "Line 4, Column 9 :: Expected '//' or '/*' for comment, not '/'",
+            ),
+            (
+                TokenizerError::UnexpectedCharacter(Box::new(UnexpectedCharacter {
+                    char: '@',
+                    line: 7,
+                    col: 11,
+                })),
+                "Line 7, Column 11 :: Unexpected character: '@'",
+            ),
+        ] {
+            assert_eq!(
+                input.to_string(),
+                format!("{color_red}{style_bold}{expected}{color_reset}{style_reset}"),
+            );
+        }
+    }
 }
