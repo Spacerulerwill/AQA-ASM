@@ -2,7 +2,7 @@
 ![Tests](https://github.com/Spacerulerwill/AQA-ASM/actions/workflows/tests.yml/badge.svg)
 [![codecov](https://codecov.io/gh/Spacerulerwill/AQA-ASM/graph/badge.svg?token=XXWP13W957)](https://codecov.io/gh/Spacerulerwill/AQA-ASM)
 [![](https://tokei.rs/b1/github/Spacerulerwill/AQA-ASM)](https://github.com/Spacerulerwill/AQA-ASM)
-
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 # AQA-ASM
 
