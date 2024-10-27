@@ -12,8 +12,8 @@ pub const REGISTER_COUNT: u8 = 13;
 pub struct Interpreter<'a, R: BufRead, W: Write> {
     memory: &'a mut [u8; 256],
     registers: &'a mut [u8; REGISTER_COUNT as usize],
-    program_bytes: usize,
-    program_counter: usize,
+    program_bytes: u8,
+    program_counter: u8,
     comparison_result: u8,
     underflow: bool,
     reader: R,
@@ -24,7 +24,7 @@ impl<'a> Interpreter<'a, BufReader<io::Stdin>, io::Stdout> {
     pub fn interpret(
         memory: &'a mut [u8; 256],
         registers: &'a mut [u8; REGISTER_COUNT as usize],
-        program_bytes: usize,
+        program_bytes: u8,
     ) -> Result<Self, RuntimeError> {
         let stdin = BufReader::new(io::stdin());
         let stdout = std::io::stdout();
@@ -36,7 +36,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
     pub fn interpret_custom_io(
         memory: &'a mut [u8; 256],
         registers: &'a mut [u8; REGISTER_COUNT as usize],
-        program_bytes: usize,
+        program_bytes: u8,
         reader: R,
         writer: W,
     ) -> Result<Self, RuntimeError> {
@@ -127,26 +127,26 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         if self.program_counter >= self.program_bytes {
             return Err(RuntimeError::ReadPastMemory);
         }
-        let result = self.memory[self.program_counter];
+        let result = self.memory[self.program_counter as usize];
         self.program_counter += 1;
         Ok(result)
     }
 
-    fn read_memory_address(&self, idx: usize) -> Result<u8, RuntimeError> {
-        match self.memory.get(self.program_bytes + idx) {
-            Some(&val) => Ok(val),
-            None => Err(RuntimeError::OutOfBoundsRead(idx)),
-        }
+    fn read_memory_address(&self, idx: u8) -> Result<u8, RuntimeError> {
+        let new_address = match self.program_bytes.checked_add(idx) {
+            Some(new) => new,
+            None => return Err(RuntimeError::OutOfBoundsRead(idx as usize)),
+        };
+        Ok(self.memory[new_address as usize])
     }
 
-    fn write_memory_address(&mut self, val: u8, idx: usize) -> Result<(), RuntimeError> {
-        match self.memory.get_mut(self.program_bytes + idx) {
-            Some(v) => {
-                *v = val;
-                Ok(())
-            }
-            None => Err(RuntimeError::OutOfBoundsWrite(idx)),
-        }
+    fn write_memory_address(&mut self, val: u8, idx: u8) -> Result<(), RuntimeError> {
+        let new_address = match self.program_bytes.checked_add(idx) {
+            Some(new) => new,
+            None => return Err(RuntimeError::OutOfBoundsWrite(idx as usize)),
+        };
+        self.memory[new_address as usize] = val; 
+        Ok(())
     }
 
     fn take_u8_input(&mut self) -> u8 {
@@ -159,16 +159,16 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
     }
 
     fn interpret_ldr(&mut self) -> Result<(), RuntimeError> {
-        let register = self.read_next_memory_address()? as usize;
-        let memory_ref = self.read_next_memory_address()? as usize;
-        self.registers[register] = self.read_memory_address(memory_ref)?;
+        let register = self.read_next_memory_address()?;
+        let memory_ref = self.read_next_memory_address()?;
+        self.registers[register as usize] = self.read_memory_address(memory_ref)?;
         Ok(())
     }
 
     fn interpret_str(&mut self) -> Result<(), RuntimeError> {
-        let register = self.read_next_memory_address()? as usize;
-        let memory_ref = self.read_next_memory_address()? as usize;
-        self.write_memory_address(self.registers[register], memory_ref)?;
+        let register = self.read_next_memory_address()?;
+        let memory_ref = self.read_next_memory_address()?;
+        self.write_memory_address(self.registers[register as usize], memory_ref)?;
         Ok(())
     }
 
@@ -236,14 +236,14 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
     }
 
     fn interpret_b(&mut self) -> Result<(), RuntimeError> {
-        let idx_to_branch_too = self.read_next_memory_address()? as usize;
+        let idx_to_branch_too = self.read_next_memory_address()?;
         self.program_counter = idx_to_branch_too;
         Ok(())
     }
 
     fn interpret_beq(&mut self) -> Result<(), RuntimeError> {
         if self.comparison_result == 0 {
-            let idx_to_branch_too = self.read_next_memory_address()? as usize;
+            let idx_to_branch_too = self.read_next_memory_address()?;
             self.program_counter = idx_to_branch_too;
         } else {
             self.program_counter += 1;
@@ -253,7 +253,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
 
     fn interpret_bne(&mut self) -> Result<(), RuntimeError> {
         if self.comparison_result != 0 {
-            let idx_to_branch_too: usize = self.read_next_memory_address()? as usize;
+            let idx_to_branch_too = self.read_next_memory_address()?;
             self.program_counter = idx_to_branch_too;
         } else {
             self.program_counter += 1;
@@ -263,7 +263,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
 
     fn interpret_bgt(&mut self) -> Result<(), RuntimeError> {
         if self.comparison_result != 0 && !self.underflow {
-            let idx_to_branch_too = self.read_next_memory_address()? as usize;
+            let idx_to_branch_too = self.read_next_memory_address()?;
             self.program_counter = idx_to_branch_too;
         } else {
             self.program_counter += 1;
@@ -273,7 +273,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
 
     fn interpret_blt(&mut self) -> Result<(), RuntimeError> {
         if self.underflow {
-            let idx_to_branch_too = self.read_next_memory_address()? as usize;
+            let idx_to_branch_too = self.read_next_memory_address()?;
             self.program_counter = idx_to_branch_too;
         } else {
             self.program_counter += 1;
@@ -385,7 +385,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         let memory_ref = self.read_next_memory_address()?;
         self.write_line(&format!(
             "{}",
-            self.read_memory_address(memory_ref as usize)?
+            self.read_memory_address(memory_ref)?
         ));
         Ok(())
     }
@@ -399,7 +399,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
     fn interpret_input_memory(&mut self) -> Result<(), RuntimeError> {
         let memory_ref = self.read_next_memory_address()?;
         let value = self.take_u8_input();
-        self.write_memory_address(value, memory_ref as usize)?;
+        self.write_memory_address(value, memory_ref)?;
         Ok(())
     }
 }
@@ -424,7 +424,7 @@ mod tests {
         let memory_copy = memory.clone();
         let mut registers = [0; REGISTER_COUNT as usize];
         let registers_copy = registers.clone();
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(memory, memory_copy);
         assert_eq!(registers, registers_copy);
     }
@@ -434,7 +434,7 @@ mod tests {
         let program = [RuntimeOpcode::LDR as u8, 0, 0, RuntimeOpcode::HALT as u8, 5];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
-        Interpreter::interpret(&mut memory, &mut registers, program.len() - 1).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8 - 1).unwrap();
         assert_eq!(registers[0], 5);
     }
 
@@ -444,7 +444,7 @@ mod tests {
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         registers[0] = 5;
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(memory[program.len()], 5);
     }
 
@@ -463,7 +463,7 @@ mod tests {
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(registers[0], 5);
         assert_eq!(registers[1], 5);
     }
@@ -485,7 +485,7 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         registers[0] = 255;
         registers[1] = 255;
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(registers[0], 250);
         assert_eq!(registers[1], 5);
     }
@@ -503,7 +503,7 @@ mod tests {
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(registers[0], 5);
         assert_eq!(registers[1], 5);
     }
@@ -520,7 +520,7 @@ mod tests {
         let mut memory = load_test_program(program);
         let mut registers = [0; REGISTER_COUNT as usize];
         let interpreter =
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 0);
         assert_eq!(interpreter.underflow, false);
 
@@ -533,7 +533,7 @@ mod tests {
         ];
         let mut memory = load_test_program(program);
         let interpreter =
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 0);
         assert_eq!(interpreter.underflow, false);
     }
@@ -551,7 +551,7 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         registers[0] = 5;
         let interpreter =
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 5);
         assert_eq!(interpreter.underflow, false);
 
@@ -563,7 +563,7 @@ mod tests {
         ];
         let mut memory = load_test_program(program);
         let interpreter =
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 5);
         assert_eq!(interpreter.underflow, false);
     }
@@ -581,7 +581,7 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         registers[1] = 5;
         let interpreter =
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 251);
         assert_eq!(interpreter.underflow, true);
 
@@ -594,7 +594,7 @@ mod tests {
         ];
         let mut memory = load_test_program(program);
         let interpreter =
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 251);
         assert_eq!(interpreter.underflow, true);
     }
@@ -610,7 +610,7 @@ mod tests {
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         let interpreter =
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.program_counter, 4);
     }
 
@@ -627,7 +627,7 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         let mut interpreter = Interpreter {
             comparison_result: 0,
-            program_bytes: program.len(),
+            program_bytes: program.len() as u8,
             memory: &mut memory,
             registers: &mut registers,
             program_counter: 0,
@@ -658,7 +658,7 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         let mut interpreter = Interpreter {
             comparison_result: 1,
-            program_bytes: program.len(),
+            program_bytes: program.len() as u8,
             memory: &mut memory,
             registers: &mut registers,
             program_counter: 0,
@@ -689,7 +689,7 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         let mut interpreter = Interpreter {
             comparison_result: 1,
-            program_bytes: program.len(),
+            program_bytes: program.len() as u8,
             memory: &mut memory,
             registers: &mut registers,
             program_counter: 0,
@@ -727,7 +727,7 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         let mut interpreter = Interpreter {
             comparison_result: 1,
-            program_bytes: program.len(),
+            program_bytes: program.len() as u8,
             memory: &mut memory,
             registers: &mut registers,
             program_counter: 0,
@@ -770,7 +770,7 @@ mod tests {
         registers[0] = 0b10101010;
         registers[1] = 0b10101010;
         registers[2] = 0b00001111;
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(registers[0], 0b10100000);
         assert_eq!(registers[1], 0b00001010);
     }
@@ -791,7 +791,7 @@ mod tests {
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         registers[0] = 0b11001010;
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(registers[0], 0b11001111);
         assert_eq!(registers[1], 0b11001111);
     }
@@ -813,7 +813,7 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         registers[0] = 0b11001010;
         registers[1] = 0b11111111;
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(registers[0], 0b11000101);
         assert_eq!(registers[1], 0b00000000);
     }
@@ -833,7 +833,7 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         registers[0] = 0b11111111;
         registers[1] = 0b11111111;
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(registers[0], 0b11110000);
         assert_eq!(registers[1], 0b00001111);
     }
@@ -856,7 +856,7 @@ mod tests {
         registers[0] = 0b11000011;
         registers[1] = 0b11000011;
         registers[2] = 2;
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(registers[0], 0b00110000);
         assert_eq!(registers[1], 0b00001100);
     }
@@ -879,7 +879,7 @@ mod tests {
         registers[0] = 0b11000011;
         registers[1] = 0b11000011;
         registers[2] = 2;
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(registers[0], 0b00001100);
         assert_eq!(registers[1], 0b00110000);
     }
@@ -906,7 +906,7 @@ mod tests {
         Interpreter::interpret_custom_io(
             &mut memory,
             &mut registers,
-            program.len(),
+            program.len() as u8,
             reader,
             writer,
         )
@@ -939,7 +939,7 @@ mod tests {
         Interpreter::interpret_custom_io(
             &mut memory,
             &mut registers,
-            program.len(),
+            program.len() as u8,
             reader,
             writer,
         )
@@ -972,7 +972,7 @@ mod tests {
         Interpreter::interpret_custom_io(
             &mut memory,
             &mut registers,
-            program.len(),
+            program.len() as u8,
             reader,
             writer,
         )
@@ -1004,7 +1004,7 @@ mod tests {
         Interpreter::interpret_custom_io(
             &mut memory,
             &mut registers,
-            program.len(),
+            program.len() as u8,
             reader,
             writer,
         )
@@ -1022,7 +1022,7 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         let registers_copy = registers.clone();
         let interpreter =
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap();
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(*interpreter.memory, memory_copy);
         assert_eq!(*interpreter.registers, registers_copy);
         assert_eq!(interpreter.program_counter, 1);
@@ -1034,7 +1034,7 @@ mod tests {
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert_eq!(
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap_err(),
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap_err(),
             RuntimeError::OutOfBoundsRead(253)
         );
     }
@@ -1045,7 +1045,7 @@ mod tests {
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert_eq!(
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap_err(),
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap_err(),
             RuntimeError::OutOfBoundsWrite(253)
         );
     }
@@ -1056,7 +1056,7 @@ mod tests {
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert_eq!(
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap_err(),
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap_err(),
             RuntimeError::ReadPastMemory
         )
     }
@@ -1067,7 +1067,7 @@ mod tests {
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert_eq!(
-            Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap_err(),
+            Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap_err(),
             RuntimeError::ReadPastMemory
         )
     }
@@ -1078,6 +1078,6 @@ mod tests {
         let program = [45];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
-        Interpreter::interpret(&mut memory, &mut registers, program.len()).unwrap_err();
+        Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap_err();
     }
 }

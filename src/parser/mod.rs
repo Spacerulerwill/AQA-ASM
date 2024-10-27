@@ -23,7 +23,7 @@ impl<'a> Parser<'a> {
     /// to their corresponding label. If there is a label operand without an associated label, an error will be returned.
     pub fn parse(
         tokens: Vec<Token>,
-    ) -> Result<([u8; 256], usize), ParserError> {
+    ) -> Result<([u8; 256], u8), ParserError> {
         // Resolve labels
         let mut labels = HashMap::new();
         let mut program_size: u8 = 0;
@@ -59,7 +59,7 @@ impl<'a> Parser<'a> {
             memory_iter: memory.iter_mut(),
         };
         parser.internal_parse()?;
-        Ok((memory, program_size as usize))
+        Ok((memory, program_size))
     }
 
     fn internal_parse(&mut self) -> Result<(), ParserError> {
@@ -323,7 +323,7 @@ mod tests {
             0,
             RuntimeOpcode::HALT as u8,
         ];
-        let expected = (load_test_program(program), program.len());
+        let expected = (load_test_program(program), program.len() as u8);
         assert_eq!(result, expected);
     }
 

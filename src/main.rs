@@ -45,7 +45,6 @@ macro_rules! bad_print {
     };
 }
 
-// Add this to your main.rs or lib.rs
 pub fn run_interpreter<R: BufRead, W: Write>(
     filepath: &str,
     tabsize: u8,
@@ -64,7 +63,7 @@ pub fn run_interpreter<R: BufRead, W: Write>(
         Parser::parse(tokenizer.tokens).map_err(|err| err.to_string())?;
 
     // Run the program
-    let free_memory = 256 - program_bytes;
+    let free_memory = u8::MAX.wrapping_sub(program_bytes).wrapping_add(1);
     let mut registers = [0; REGISTER_COUNT as usize];
 
     // Print the program running message
