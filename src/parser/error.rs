@@ -19,6 +19,10 @@ pub enum ParserError {
     InvalidLabel(Box<InvalidLabel>),
     /// Signature for an instruction is incorrect
     InvalidInstructionSignature(Box<InvalidInstructionSignature>),
+    /// Same label has been defined in multiple places
+    LabelDuplicateDefinition(Box<LabelDuplicateDefinition>),
+    /// Program exceeds memory limit (256 bytes),
+    ProgramTooLarge,
 }
 
 impl std::error::Error for ParserError {}
@@ -129,6 +133,17 @@ impl fmt::Display for ParserError {
                         .join("\n")
                 )
             }
+            ParserError::LabelDuplicateDefinition(err) => write!(
+                f,
+                "Line {}, Column {} :: Label '{}' defined multiple times",
+                err.line,
+                err.col,
+                &err.name
+            ),
+            ParserError::ProgramTooLarge => write!(
+                f,
+                "Program exceeds memory limit (256 bytes)"
+            ),
         }?;
         write!(f, "{color_reset}{style_reset}")
     }
@@ -162,15 +177,18 @@ pub struct InvalidInstructionSignature {
     pub received: Vec<Operand>,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct LabelDuplicateDefinition {
+    pub name: String,
+    pub line: usize,
+    pub col: usize,
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{
-        ExpectedOpcode, ExpectedOperand, ExpectedTokenKind, InvalidInstructionSignature,
-        InvalidLabel, ParserError,
-    };
+    use super::*;
     use crate::{
-        interpreter::instruction::{operand::Operand, source_opcode::SourceOpcode},
-        tokenizer::{Token, TokenKind},
+        interpreter::instruction::{operand::Operand, source_opcode::SourceOpcode}, tokenizer::{Token, TokenKind}
     };
     use inline_colorization::{color_red, color_reset, style_bold, style_reset};
 
@@ -278,6 +296,18 @@ but found token 'label'",
 • MOV register, register
 • MOV register, literal",
             ),
+            (
+                ParserError::LabelDuplicateDefinition(Box::new(LabelDuplicateDefinition {
+                    name: String::from("test"),
+                    line: 1200,
+                    col: 130
+                })),
+                "Line 1200, Column 130 :: Label 'test' defined multiple times"
+            ),
+            (
+                ParserError::ProgramTooLarge,
+                "Program exceeds memory limit (256 bytes)"
+            )
         ] {
             assert_eq!(
                 input.to_string(),

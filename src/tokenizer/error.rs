@@ -3,8 +3,6 @@ use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum TokenizerError {
-    /// Program is too big too fit
-    ProgramTooLarge(Box<ProgramTooLarge>),
     // Literal with value > 255
     LiteralValueTooLarge(Box<LiteralValueTooLarge>),
     /// Register denoter 'R' without a number following
@@ -13,10 +11,6 @@ pub enum TokenizerError {
     MissingNumberAfterLiteralDenoter(Box<MissingNumberAfterLiteralDenoter>),
     /// Invalid register number (greater than REGISTER_COUNT)
     InvalidRegisterNumber(Box<InvalidRegisterNumber>),
-    /// A label definition inserted in an incorrect place. They may appear only after newlines or semicolons.
-    InvalidLabelDefinitionLocation(Box<InvalidLabelDefinitionLocation>),
-    /// Label definition appearing more than once in seperate places
-    DuplicateLabelDefinition(Box<DuplicateLabelDefinition>),
     /// Missing a */ delimeter for a block comment
     UnterminatedBlockComment(Box<UnterminatedBlockComment>),
     /// '/' character is an invalid comment denoter
@@ -31,12 +25,6 @@ impl fmt::Display for TokenizerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{color_red}{style_bold}")?;
         match self {
-            TokenizerError::ProgramTooLarge(err) => write!(
-                f,
-                "Line {}, Column {} :: Program exceeds memory limit (256 bytes)",
-                err.line,
-                err.col
-            ),
             TokenizerError::LiteralValueTooLarge(err) => write!(
                 f,
                 "Line {}, Column {} :: Literal value '{}' too large (max value of 255)",
@@ -62,20 +50,6 @@ impl fmt::Display for TokenizerError {
                 err.line,
                 err.col,
                 err.value,
-            ),
-            TokenizerError::InvalidLabelDefinitionLocation(err) => write!(
-                f,
-                "Line {}, Column {} :: Invalid label definition location for label '{}', labels may only appear after line delimiters (newline or ';')",
-                err.line,
-                err.col,
-                &err.label_name
-            ),
-            TokenizerError::DuplicateLabelDefinition(err) => write!(
-                f,
-                "Line {}, Column {} :: Definition for label '{}' already exists",
-                err.line,
-                err.col,
-                &err.label_name,
             ),
             TokenizerError::UnterminatedBlockComment(err) => write!(
                 f,
@@ -134,20 +108,6 @@ pub struct InvalidRegisterNumber {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct InvalidLabelDefinitionLocation {
-    pub label_name: String,
-    pub line: usize,
-    pub col: usize,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct DuplicateLabelDefinition {
-    pub label_name: String,
-    pub line: usize,
-    pub col: usize,
-}
-
-#[derive(Debug, PartialEq)]
 pub struct UnterminatedBlockComment {
     pub line: usize,
     pub col: usize,
@@ -173,10 +133,6 @@ mod tests {
         use super::*;
 
         for (input, expected) in [
-            (
-                TokenizerError::ProgramTooLarge(Box::new(ProgramTooLarge { line: 1, col: 2 })),
-                "Line 1, Column 2 :: Program exceeds memory limit (256 bytes)",
-            ),
             (
                 TokenizerError::LiteralValueTooLarge(Box::new(LiteralValueTooLarge {
                     value_string: String::from("12345"),
@@ -207,22 +163,6 @@ mod tests {
                     col: 8,
                 })),
                 "Line 13, Column 8 :: Invalid register 'R0' (must be in range 0-12 inclusive)",
-            ),
-            (
-                TokenizerError::InvalidLabelDefinitionLocation(Box::new(InvalidLabelDefinitionLocation {
-                    label_name: String::from("main"),
-                    line: 10,
-                    col: 5,
-                })),
-                "Line 10, Column 5 :: Invalid label definition location for label 'main', labels may only appear after line delimiters (newline or ';')",
-            ),
-            (
-                TokenizerError::DuplicateLabelDefinition(Box::new(DuplicateLabelDefinition {
-                    label_name: String::from("loop"),
-                    line: 6,
-                    col: 14,
-                })),
-                "Line 6, Column 14 :: Definition for label 'loop' already exists",
             ),
             (
                 TokenizerError::UnterminatedBlockComment(Box::new(UnterminatedBlockComment {

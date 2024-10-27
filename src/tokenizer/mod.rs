@@ -3,31 +3,18 @@ pub use error::*;
 mod token;
 pub use token::*;
 
-use crate::{
-    interpreter::{
+use crate::interpreter::{
         instruction::{operand::Operand, source_opcode::SourceOpcode},
         REGISTER_COUNT,
-    },
-    tokenizer::InvalidLabelDefinitionLocation,
-};
+    };
 use std::{
-    collections::HashMap,
     iter::Peekable,
     str::{Chars, FromStr},
 };
 
-#[derive(Debug, PartialEq)]
-pub struct LabelDefinition {
-    pub byte: u8,
-    pub line: usize,
-    pub col: usize,
-}
-
 #[derive(Debug)]
 pub struct Tokenizer<'a> {
     pub tokens: Vec<Token>,
-    pub labels: HashMap<String, LabelDefinition>,
-    pub program_bytes: usize,
     input: &'a str,
     iter: Peekable<Chars<'a>>,
     prev_pos: TokenPosition,
@@ -39,8 +26,6 @@ impl<'a> Tokenizer<'a> {
     pub fn tokenize(input: &'a str, tabsize: u8) -> Result<Self, TokenizerError> {
         let mut tokenizer = Tokenizer {
             tokens: Vec::new(),
-            labels: HashMap::new(),
-            program_bytes: 0,
             input: input,
             iter: input.chars().peekable(),
             prev_pos: TokenPosition::default(),
@@ -116,21 +101,6 @@ impl<'a> Tokenizer<'a> {
         return None;
     }
 
-    fn inc_program_byte_count(&mut self) -> Result<(), TokenizerError> {
-        if self.program_bytes == 256 {
-            let most_recent_token = self
-                .tokens
-                .last()
-                .expect("This should never happen, unless this was called BEFORE adding a token");
-            return Err(TokenizerError::ProgramTooLarge(Box::new(ProgramTooLarge {
-                line: most_recent_token.line,
-                col: most_recent_token.col,
-            })));
-        }
-        self.program_bytes += 1;
-        Ok(())
-    }
-
     /// Consume a string of characters while a condition is met
     fn consume_while<F>(&mut self, condition: F) -> String
     where
@@ -158,11 +128,6 @@ impl<'a> Tokenizer<'a> {
             self.prev_pos.line,
             self.prev_pos.col,
         ));
-        // Increase the program byte count if its an operand or opcode
-        match kind {
-            TokenKind::Opcode(_) | TokenKind::Operand(_) => self.inc_program_byte_count()?,
-            _ => {}
-        };
         self.prev_pos = self.current_pos.clone();
         Ok(())
     }
@@ -247,45 +212,9 @@ impl<'a> Tokenizer<'a> {
         }
         // Is it a label definition? (i.e a ':' follows it)
         if let Some(':') = self.iter.peek() {
-            // Check the previous token added
-            match self.tokens.last() {
-                // Allowed: Some(token) if the token is a Newline or Semicolon, or if it's None
-                Some(token)
-                    if token.kind == TokenKind::Newline || token.kind == TokenKind::Semicolon => {}
-                None => {}
-                // Not allowed: anything else
-                _ => {
-                    return Err(TokenizerError::InvalidLabelDefinitionLocation(Box::new(
-                        InvalidLabelDefinitionLocation {
-                            label_name: identifier,
-                            line: self.prev_pos.line,
-                            col: self.prev_pos.col,
-                        },
-                    )))
-                }
-            }
-
-            // Is label already present? Return error if so
-            if self.labels.get(&identifier).is_some() {
-                return Err(TokenizerError::DuplicateLabelDefinition(Box::new(
-                    DuplicateLabelDefinition {
-                        label_name: identifier,
-                        line: self.prev_pos.line,
-                        col: self.prev_pos.col,
-                    },
-                )));
-            }
-            // We can insert it as it was not already present
-            self.labels.insert(
-                identifier,
-                LabelDefinition {
-                    byte: self.program_bytes as u8,
-                    line: self.prev_pos.line,
-                    col: self.prev_pos.col,
-                },
-            );
-            // Move past the ';'
+            // Move past the ':'
             self.next();
+            self.add_token(TokenKind::LabelDefinition)?;
             return Ok(());
         }
         // It's a label operand
@@ -486,25 +415,6 @@ mod tests {
     }
 
     #[test]
-    fn test_duplicate_label_definitions() {
-        assert_eq!(
-            Tokenizer::tokenize(
-                "label:
-NOP
-label:
-NOP",
-                4
-            )
-            .unwrap_err(),
-            TokenizerError::DuplicateLabelDefinition(Box::new(DuplicateLabelDefinition {
-                label_name: String::from("label"),
-                line: 3,
-                col: 1
-            }))
-        );
-    }
-
-    #[test]
     fn test_invalid_register_number() {
         assert_eq!(
             Tokenizer::tokenize("R13", 4).unwrap_err(),
@@ -523,28 +433,6 @@ NOP",
                 col: 1
             }))
         )
-    }
-
-    #[test]
-    fn test_too_large_program() {
-        assert_eq!(
-            Tokenizer::tokenize(&"NOP;".repeat(257), 4).unwrap_err(),
-            TokenizerError::ProgramTooLarge(Box::new(ProgramTooLarge { line: 1, col: 1025 }))
-        );
-    }
-
-    #[test]
-    fn test_label_definition_not_after_line_delimeters() {
-        assert_eq!(
-            Tokenizer::tokenize("NOP label:", 4).unwrap_err(),
-            TokenizerError::InvalidLabelDefinitionLocation(Box::new(
-                InvalidLabelDefinitionLocation {
-                    label_name: String::from("label"),
-                    line: 1,
-                    col: 5
-                }
-            ))
-        );
     }
 
     #[test]
@@ -604,7 +492,7 @@ R11 /* bruh */ LDR ;\t// hello!
                 (3,1), (3,16), (3,20), (3,34),
                 (7, 6), (7,9), (7, 10),
                 (8, 1), (8,5), (8,8), (8,12), (8,16), (8,18), (8,19),
-                (9, 1), (9,12), (9,24), (9,34),
+                (9, 1), (9,6), (9,12), (9,14), (9,24), (9,34),
             ]
         )
     }

@@ -60,18 +60,18 @@ pub fn run_interpreter<R: BufRead, W: Write>(
     let tokenizer = Tokenizer::tokenize(&source, tabsize).map_err(|err| err.to_string())?;
 
     // Parse and load the instructions into memory
-    let mut memory =
-        Parser::parse(tokenizer.tokens, tokenizer.labels).map_err(|err| err.to_string())?;
+    let (mut memory, program_bytes) =
+        Parser::parse(tokenizer.tokens).map_err(|err| err.to_string())?;
 
     // Run the program
-    let free_memory = 256 - tokenizer.program_bytes;
+    let free_memory = 256 - program_bytes;
     let mut registers = [0; REGISTER_COUNT as usize];
 
     // Print the program running message
     good_print!(
         "Running program '{}' ({}/256 bytes in use, {} bytes free)",
         filepath,
-        tokenizer.program_bytes,
+        program_bytes,
         free_memory
     );
 
@@ -79,7 +79,7 @@ pub fn run_interpreter<R: BufRead, W: Write>(
     Interpreter::interpret_custom_io(
         &mut memory,
         &mut registers,
-        tokenizer.program_bytes,
+        program_bytes,
         reader,
         writer,
     )
@@ -87,7 +87,7 @@ pub fn run_interpreter<R: BufRead, W: Write>(
 
     good_print!("Program exited successfully");
 
-    let result_memory = memory[tokenizer.program_bytes..].to_owned();
+    let result_memory = memory[program_bytes as usize..].to_owned();
     Ok((result_memory, registers))
 }
 

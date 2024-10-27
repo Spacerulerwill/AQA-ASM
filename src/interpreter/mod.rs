@@ -30,7 +30,7 @@ impl<'a> Interpreter<'a, BufReader<io::Stdin>, io::Stdout> {
         let stdout = std::io::stdout();
         Interpreter::interpret_custom_io(memory, registers, program_bytes, stdin, stdout)
     }
-}
+} 
 
 impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
     pub fn interpret_custom_io(

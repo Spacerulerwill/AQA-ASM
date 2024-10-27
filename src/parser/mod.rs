@@ -5,7 +5,7 @@ use crate::{
     interpreter::instruction::{
         operand::Operand, signature::SIGNATURE_TREE, source_opcode::SourceOpcode,
     },
-    tokenizer::{LabelDefinition, Token, TokenKind},
+    tokenizer::{Token, TokenKind},
 };
 
 use std::{collections::HashMap, iter::Peekable, slice::IterMut, vec::IntoIter};
@@ -13,7 +13,7 @@ use std::{collections::HashMap, iter::Peekable, slice::IterMut, vec::IntoIter};
 #[derive(Debug)]
 pub struct Parser<'a> {
     token_iter: Peekable<IntoIter<Token>>,
-    labels: HashMap<String, LabelDefinition>,
+    labels: HashMap<String, u8>,
     memory_iter: IterMut<'a, u8>,
 }
 
@@ -23,8 +23,35 @@ impl<'a> Parser<'a> {
     /// to their corresponding label. If there is a label operand without an associated label, an error will be returned.
     pub fn parse(
         tokens: Vec<Token>,
-        labels: HashMap<String, LabelDefinition>,
-    ) -> Result<[u8; 256], ParserError> {
+    ) -> Result<([u8; 256], usize), ParserError> {
+        // Resolve labels
+        let mut labels = HashMap::new();
+        let mut program_size: u8 = 0;
+        for token in tokens.iter() {
+            match token.kind {
+                TokenKind::Opcode(_) | TokenKind::Operand(_) => {
+                    match program_size.checked_add(1) {
+                        Some(new) => program_size = new,
+                        None => return Err(ParserError::ProgramTooLarge),
+                    }
+                }
+                TokenKind::LabelDefinition => {
+                    let label_definition_lexeme = &token.lexeme;
+                    let mut label_name = label_definition_lexeme.clone();
+                    label_name.pop();
+                    if labels.get(&label_name).is_some() {
+                        return Err(ParserError::LabelDuplicateDefinition(Box::new(LabelDuplicateDefinition{
+                            name: label_name,
+                            line: token.line,
+                            col: token.col
+                        })));
+                    }
+                    labels.insert(label_name, program_size);
+                }
+                _ => {}
+            }
+        }
+        // Parse instructions into memory
         let mut memory = [0; 256];
         let mut parser = Parser {
             token_iter: tokens.into_iter().peekable(),
@@ -32,7 +59,7 @@ impl<'a> Parser<'a> {
             memory_iter: memory.iter_mut(),
         };
         parser.internal_parse()?;
-        Ok(memory)
+        Ok((memory, program_size as usize))
     }
 
     fn internal_parse(&mut self) -> Result<(), ParserError> {
@@ -47,7 +74,7 @@ impl<'a> Parser<'a> {
                 TokenKind::Opcode(opcode) => {
                     self.parse_opcode(token, opcode)?;
                 }
-                TokenKind::Newline | TokenKind::Semicolon => {}
+                TokenKind::Newline | TokenKind::Semicolon | TokenKind::LabelDefinition => {}
                 _ => {
                     return Err(ParserError::ExpectedOpcode(Box::new(ExpectedOpcode {
                         got: token,
@@ -149,12 +176,12 @@ impl<'a> Parser<'a> {
                     Operand::MemoryRef(val) => self.write_memory(val),
                     // resolve labels
                     Operand::Label => match self.labels.get(&token.lexeme) {
-                        Some(label_definition) => self.write_memory(label_definition.byte),
+                        Some(&byte) => self.write_memory(byte),
                         _ => {
                             return Err(ParserError::InvalidLabel(Box::new(InvalidLabel { token })))
                         }
                     },
-                }
+                };
             }
         } else {
             return Err(ParserError::InvalidInstructionSignature(Box::new(
@@ -181,10 +208,10 @@ mod tests {
             source_opcode::SourceOpcode,
         },
         parser::{ExpectedTokenKind, InvalidInstructionSignature},
-        tokenizer::{LabelDefinition, Token, TokenKind},
+        tokenizer::{Token, TokenKind},
     };
 
-    use super::{ExpectedOpcode, ExpectedOperand, InvalidLabel, Parser, ParserError};
+    use super::*;
 
     fn load_test_program(program: &[u8]) -> [u8; 256] {
         let mut memory = [0; 256];
@@ -249,14 +276,16 @@ mod tests {
                 let mut labels = HashMap::new();
                 labels.insert(
                     String::from("test"),
-                    LabelDefinition {
-                        byte: 127,
-                        line: 1,
-                        col: 1,
-                    },
+                    127,
                 );
-                let result = Parser::parse(tokens, labels).unwrap();
-                assert_eq!(result, expected);
+                let mut memory = [0; 256];
+                let mut parser = Parser {
+                    labels,
+                    token_iter: tokens.into_iter().peekable(),
+                    memory_iter: memory.iter_mut()
+                };
+                parser.internal_parse().unwrap();
+                assert_eq!(memory, expected);
             }
         }
     }
@@ -288,12 +317,13 @@ mod tests {
             Token::new(TokenKind::Semicolon, ";", 4, 8),
             Token::new(TokenKind::Newline, "\n", 4, 9),
         ];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap();
-        let expected = load_test_program(&[
+        let result = Parser::parse(tokens).unwrap();
+        let program = &[
             RuntimeOpcode::PRINT_REGISTER as u8,
             0,
             RuntimeOpcode::HALT as u8,
-        ]);
+        ];
+        let expected = (load_test_program(program), program.len());
         assert_eq!(result, expected);
     }
 
@@ -312,7 +342,7 @@ mod tests {
                 Token::new(TokenKind::Operand(Operand::Label), "branch", 1, 1000),
                 Token::new(TokenKind::Newline, "\n", 1, 1001),
             ];
-            let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+            let result = Parser::parse(tokens).unwrap_err();
             let expected = ParserError::InvalidLabel(Box::new(InvalidLabel {
                 token: Token::new(TokenKind::Operand(Operand::Label), "branch", 1, 1000),
             }));
@@ -325,7 +355,7 @@ mod tests {
         //,
         let comma = Token::new(TokenKind::Comma, ",", 1, 1);
         let tokens = vec![comma.clone()];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected = ParserError::ExpectedOpcode(Box::new(ExpectedOpcode { got: comma }));
         assert_eq!(result, expected);
         //HALT; R4
@@ -335,7 +365,7 @@ mod tests {
             Token::new(TokenKind::Semicolon, ";", 1, 5),
             register.clone(),
         ];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected = ParserError::ExpectedOpcode(Box::new(ExpectedOpcode { got: register }));
         assert_eq!(result, expected);
     }
@@ -351,7 +381,7 @@ mod tests {
             Token::new(TokenKind::Comma, ",", 1, 7),
             semicolon.clone(),
         ];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected = ParserError::ExpectedOperand(Box::new(ExpectedOperand {
             got: Some(semicolon),
         }));
@@ -363,7 +393,7 @@ mod tests {
             Token::new(TokenKind::Operand(Operand::Register(4)), "R4", 1, 5),
             Token::new(TokenKind::Comma, ",", 1, 7),
         ];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected = ParserError::ExpectedOperand(Box::new(ExpectedOperand { got: None }));
         assert_eq!(result, expected);
     }
@@ -376,7 +406,7 @@ mod tests {
             Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1),
             halt.clone(),
         ];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected = ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
             candidates: vec![TokenKind::Semicolon, TokenKind::Newline],
             got: Some(halt),
@@ -389,7 +419,7 @@ mod tests {
             1,
             1,
         )];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected = ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
             candidates: vec![TokenKind::Semicolon, TokenKind::Newline],
             got: None,
@@ -401,7 +431,7 @@ mod tests {
             Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1),
             comma.clone(),
         ];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected = ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
             candidates: vec![TokenKind::Semicolon, TokenKind::Newline],
             got: Some(comma),
@@ -419,7 +449,7 @@ mod tests {
             register.clone(),
             Token::new(TokenKind::Semicolon, ";", 1, 10),
         ];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected = ParserError::ExpectedTokenKind(Box::new(ExpectedTokenKind {
             candidates: vec![TokenKind::Comma],
             got: Some(register),
@@ -436,7 +466,7 @@ mod tests {
             Token::new(TokenKind::Operand(Operand::Register(0)), "R0", 1, 1),
             Token::new(TokenKind::Semicolon, ";", 1, 1),
         ];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected =
             ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
                 opcode_token: opcode,
@@ -448,7 +478,7 @@ mod tests {
         // Instruciton with multiple operands given none
         let opcode = Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1);
         let tokens = vec![opcode.clone(), Token::new(TokenKind::Semicolon, ";", 1, 1)];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected =
             ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
                 opcode_token: opcode,
@@ -468,7 +498,7 @@ mod tests {
             Token::new(TokenKind::Operand(Operand::Register(0)), "R0", 1, 1),
             Token::new(TokenKind::Semicolon, ";", 1, 1),
         ];
-        let result = Parser::parse(tokens, HashMap::new()).unwrap_err();
+        let result = Parser::parse(tokens).unwrap_err();
         let expected =
             ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
                 opcode_token: opcode,
@@ -479,6 +509,35 @@ mod tests {
                     Operand::Register(0),
                 ],
             }));
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parser_error_program_too_large() {
+        let mut tokens = Vec::new();
+        for _ in 0..256 {
+            tokens.extend_from_slice(&[
+                Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1),
+                Token::new(TokenKind::Semicolon, ";", 1, 1)
+            ]);
+        }
+        let result = Parser::parse(tokens).unwrap_err();
+        let expected = ParserError::ProgramTooLarge;
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parser_error_duplicate_label_definition() {
+        let tokens = vec![
+            Token::new(TokenKind::LabelDefinition, "test:", 1, 1),
+            Token::new(TokenKind::LabelDefinition, "test:", 1, 1)
+        ];
+        let result = Parser::parse(tokens).unwrap_err();
+        let expected = ParserError::LabelDuplicateDefinition(Box::new(LabelDuplicateDefinition{
+            name: String::from("test"),
+            line: 1,
+            col: 1
+        }));
         assert_eq!(result, expected);
     }
 }
