@@ -23,55 +23,47 @@ impl std::error::Error for TokenizerError {}
 
 impl fmt::Display for TokenizerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{color_red}{style_bold}")?;
-        match self {
-            TokenizerError::LiteralValueTooLarge(err) => write!(
-                f,
+        let error_message = match self {
+            TokenizerError::LiteralValueTooLarge(err) => format!(
                 "Line {}, Column {} :: Literal value '{}' too large (max value of 255)",
                 err.line,
                 err.col,
                 &err.value_string
             ),
-            TokenizerError::MissingNumberAfterRegisterDenoter(err) => write!(
-                f,
+            TokenizerError::MissingNumberAfterRegisterDenoter(err) => format!(
                 "Line {}, Column {} :: Missing number after register denoter 'R'",
                 err.line,
                 err.col,
             ),
-            TokenizerError::MissingNumberAfterLiteralDenoter(err) => write!(
-                f,
+            TokenizerError::MissingNumberAfterLiteralDenoter(err) => format!(
                 "Line {}, Column {} :: Missing number after literal denoter '#'",
                 err.line,
                 err.col,
             ),
-            TokenizerError::InvalidRegisterNumber(err) => write!(
-                f,
+            TokenizerError::InvalidRegisterNumber(err) => format!(
                 "Line {}, Column {} :: Invalid register 'R{}' (must be in range 0-12 inclusive)",
                 err.line,
                 err.col,
                 err.value,
             ),
-            TokenizerError::UnterminatedBlockComment(err) => write!(
-                f,
+            TokenizerError::UnterminatedBlockComment(err) => format!(
                 "Line {}, Column {} :: Unterminated block comment begins here",
                 err.line,
                 err.col,
             ),
-            TokenizerError::InvalidCommentDenoter(err) => write!(
-                f,
+            TokenizerError::InvalidCommentDenoter(err) => format!(
                 "Line {}, Column {} :: Expected '//' or '/*' for comment, not '/'",
                 err.line,
                 err.col,
             ),
-            TokenizerError::UnexpectedCharacter(err) => write!(
-                f,
+            TokenizerError::UnexpectedCharacter(err) => format!(
                 "Line {}, Column {} :: Unexpected character: '{}'",
                 err.line,
                 err.col,
                 err.char
             ),
-        }?;
-        write!(f, "{color_reset}{style_reset}")
+        };
+        write!(f, "{color_red}{style_bold}{error_message}{color_reset}{style_reset}")
     }
 }
 

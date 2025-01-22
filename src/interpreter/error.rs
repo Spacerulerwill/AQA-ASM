@@ -12,13 +12,12 @@ impl std::error::Error for RuntimeError {}
 
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{color_red}{style_bold}")?;
-        match self {
-            RuntimeError::ReadPastMemory => write!(f, "Runtime Error :: Program read past of available memory (perhaps you forgot the 'HALT' instruction?)"),
-            RuntimeError::OutOfBoundsRead(idx) => write!(f, "Runtime Error :: Attempt to read out of bounds memory location {idx}"),
-            RuntimeError::OutOfBoundsWrite(idx) => write!(f, "Runtime Error :: Attempt to write to out of bounds memory location {idx}")
-        }?;
-        write!(f, "{color_reset}{style_reset}")
+        let error_message = match self {
+            RuntimeError::ReadPastMemory => format!("Runtime Error :: Program read past of available memory (perhaps you forgot the 'HALT' instruction?)"),
+            RuntimeError::OutOfBoundsRead(idx) => format!("Runtime Error :: Attempt to read out of bounds memory location {idx}"),
+            RuntimeError::OutOfBoundsWrite(idx) => format!("Runtime Error :: Attempt to write to out of bounds memory location {idx}")
+        };
+        write!(f, "{color_red}{style_bold}{error_message}{color_reset}{style_reset}")
     }
 }
 
