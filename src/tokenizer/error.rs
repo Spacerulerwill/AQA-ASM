@@ -26,44 +26,37 @@ impl fmt::Display for TokenizerError {
         let error_message = match self {
             TokenizerError::LiteralValueTooLarge(err) => format!(
                 "Line {}, Column {} :: Literal value '{}' too large (max value of 255)",
-                err.line,
-                err.col,
-                &err.value_string
+                err.line, err.col, &err.value_string
             ),
             TokenizerError::MissingNumberAfterRegisterDenoter(err) => format!(
                 "Line {}, Column {} :: Missing number after register denoter 'R'",
-                err.line,
-                err.col,
+                err.line, err.col,
             ),
             TokenizerError::MissingNumberAfterLiteralDenoter(err) => format!(
                 "Line {}, Column {} :: Missing number after literal denoter '#'",
-                err.line,
-                err.col,
+                err.line, err.col,
             ),
             TokenizerError::InvalidRegisterNumber(err) => format!(
                 "Line {}, Column {} :: Invalid register 'R{}' (must be in range 0-12 inclusive)",
-                err.line,
-                err.col,
-                err.value,
+                err.line, err.col, err.value,
             ),
             TokenizerError::UnterminatedBlockComment(err) => format!(
                 "Line {}, Column {} :: Unterminated block comment begins here",
-                err.line,
-                err.col,
+                err.line, err.col,
             ),
             TokenizerError::InvalidCommentDenoter(err) => format!(
                 "Line {}, Column {} :: Expected '//' or '/*' for comment, not '/'",
-                err.line,
-                err.col,
+                err.line, err.col,
             ),
             TokenizerError::UnexpectedCharacter(err) => format!(
                 "Line {}, Column {} :: Unexpected character: '{}'",
-                err.line,
-                err.col,
-                err.char
+                err.line, err.col, err.char
             ),
         };
-        write!(f, "{color_red}{style_bold}{error_message}{color_reset}{style_reset}")
+        write!(
+            f,
+            "{color_red}{style_bold}{error_message}{color_reset}{style_reset}"
+        )
     }
 }
 

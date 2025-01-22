@@ -31,8 +31,7 @@ impl<'a> Interpreter<'a, std::io::BufReader<std::io::Stdin>, std::io::Stdout> {
         let stdout = std::io::stdout();
         Interpreter::interpret_custom_io(memory, registers, program_bytes, stdin, stdout)
     }
-} 
-
+}
 
 impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
     pub fn interpret_custom_io(
@@ -135,13 +134,17 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
     }
 
     fn read_memory_address(&self, idx: u8) -> Result<u8, RuntimeError> {
-        let Some(new_address) = self.program_bytes.checked_add(idx) else { return Err(RuntimeError::OutOfBoundsRead(idx as usize))};
+        let Some(new_address) = self.program_bytes.checked_add(idx) else {
+            return Err(RuntimeError::OutOfBoundsRead(idx as usize));
+        };
         Ok(self.memory[new_address as usize])
     }
 
     fn write_memory_address(&mut self, val: u8, idx: u8) -> Result<(), RuntimeError> {
-        let Some(new_address) = self.program_bytes.checked_add(idx) else { return Err(RuntimeError::OutOfBoundsWrite(idx as usize))};
-        self.memory[new_address as usize] = val; 
+        let Some(new_address) = self.program_bytes.checked_add(idx) else {
+            return Err(RuntimeError::OutOfBoundsWrite(idx as usize));
+        };
+        self.memory[new_address as usize] = val;
         Ok(())
     }
 
@@ -343,7 +346,8 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         let register_store = self.read_next_memory_address()? as usize;
         let register_operand_1 = self.registers[self.read_next_memory_address()? as usize];
         let register_operand_2 = self.registers[self.read_next_memory_address()? as usize];
-        self.registers[register_store] = register_operand_1.wrapping_shl(u32::from(register_operand_2));
+        self.registers[register_store] =
+            register_operand_1.wrapping_shl(u32::from(register_operand_2));
         Ok(())
     }
 
@@ -351,7 +355,8 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         let register_store = self.read_next_memory_address()? as usize;
         let register_operand_1 = self.registers[self.read_next_memory_address()? as usize];
         let literal_operand_2 = self.read_next_memory_address()?;
-        self.registers[register_store] = register_operand_1.wrapping_shl(u32::from(literal_operand_2));
+        self.registers[register_store] =
+            register_operand_1.wrapping_shl(u32::from(literal_operand_2));
         Ok(())
     }
 
@@ -359,7 +364,8 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         let register_store = self.read_next_memory_address()? as usize;
         let register_operand_1 = self.registers[self.read_next_memory_address()? as usize];
         let register_operand_2 = self.registers[self.read_next_memory_address()? as usize];
-        self.registers[register_store] = register_operand_1.wrapping_shr(u32::from(register_operand_2));
+        self.registers[register_store] =
+            register_operand_1.wrapping_shr(u32::from(register_operand_2));
         Ok(())
     }
 
@@ -367,7 +373,8 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         let register_store = self.read_next_memory_address()? as usize;
         let register_operand_1 = self.registers[self.read_next_memory_address()? as usize];
         let literal_operand_2 = self.read_next_memory_address()?;
-        self.registers[register_store] = register_operand_1.wrapping_shr(u32::from(literal_operand_2));
+        self.registers[register_store] =
+            register_operand_1.wrapping_shr(u32::from(literal_operand_2));
         Ok(())
     }
 
@@ -379,10 +386,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
 
     fn interpret_print_memory(&mut self) -> Result<(), RuntimeError> {
         let memory_ref = self.read_next_memory_address()?;
-        self.write_line(&format!(
-            "{}",
-            self.read_memory_address(memory_ref)?
-        ));
+        self.write_line(&format!("{}", self.read_memory_address(memory_ref)?));
         Ok(())
     }
 
@@ -403,7 +407,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
 #[cfg(test)]
 mod tests {
     use instruction::runtime_opcode::RuntimeOpcode;
-    use std::io::{self, Cursor, BufReader};
+    use std::io::{self, BufReader, Cursor};
 
     use super::*;
 

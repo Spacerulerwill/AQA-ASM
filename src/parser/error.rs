@@ -74,12 +74,11 @@ impl fmt::Display for ParserError {
                         ),
                     }
                 } else {
-                    let candidates_string = err.candidates.iter().fold(
-                        String::new(), |mut output, c| {
+                    let candidates_string =
+                        err.candidates.iter().fold(String::new(), |mut output, c| {
                             let _ = writeln!(output, "• {c}");
                             output
-                        } 
-                    );
+                        });
 
                     match &err.got {
                         Some(token) => format!("Line {}, Column {} :: Expected one of the following:\n{}but found token {}", token.line, token.col, &candidates_string, &token.get_token_debug_repr()),
@@ -129,15 +128,16 @@ impl fmt::Display for ParserError {
             }
             ParserError::LabelDuplicateDefinition(err) => format!(
                 "Line {}, Column {} :: Label '{}' defined multiple times",
-                err.line,
-                err.col,
-                &err.name
+                err.line, err.col, &err.name
             ),
-            ParserError::ProgramTooLarge => String::from(
-                "Program exceeds memory limit (256 bytes)"
-            ),
+            ParserError::ProgramTooLarge => {
+                String::from("Program exceeds memory limit (256 bytes)")
+            }
         };
-        write!(f, "{color_red}{style_bold}{error_message}{color_reset}{style_reset}")
+        write!(
+            f,
+            "{color_red}{style_bold}{error_message}{color_reset}{style_reset}"
+        )
     }
 }
 
@@ -180,7 +180,8 @@ pub struct LabelDuplicateDefinition {
 mod tests {
     use super::*;
     use crate::{
-        interpreter::instruction::{operand::Operand, source_opcode::SourceOpcode}, tokenizer::{Token, TokenKind}
+        interpreter::instruction::{operand::Operand, source_opcode::SourceOpcode},
+        tokenizer::{Token, TokenKind},
     };
     use inline_colorization::{color_red, color_reset, style_bold, style_reset};
 

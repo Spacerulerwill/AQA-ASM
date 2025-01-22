@@ -17,7 +17,10 @@ impl fmt::Display for RuntimeError {
             RuntimeError::OutOfBoundsRead(idx) => format!("Runtime Error :: Attempt to read out of bounds memory location {idx}"),
             RuntimeError::OutOfBoundsWrite(idx) => format!("Runtime Error :: Attempt to write to out of bounds memory location {idx}")
         };
-        write!(f, "{color_red}{style_bold}{error_message}{color_reset}{style_reset}")
+        write!(
+            f,
+            "{color_red}{style_bold}{error_message}{color_reset}{style_reset}"
+        )
     }
 }
 

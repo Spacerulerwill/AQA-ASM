@@ -4,9 +4,9 @@ mod token;
 pub use token::*;
 
 use crate::interpreter::{
-        instruction::{operand::Operand, source_opcode::SourceOpcode},
-        REGISTER_COUNT,
-    };
+    instruction::{operand::Operand, source_opcode::SourceOpcode},
+    REGISTER_COUNT,
+};
 use std::{
     iter::Peekable,
     str::{Chars, FromStr},
@@ -47,7 +47,7 @@ impl<'a> Tokenizer<'a> {
     /// * Opcodes (A string of chars that make any of our opcodes)
     /// * Label operands (A string of chars)
     /// * Label definitions (A string of chars followed by a colon)
-    /// 
+    ///
     /// Label checking does not happen in this stage. All label operands are initialised
     /// with the value 0. The next stage, parsing and instruction loading, will verify
     /// that labels are correct and exist when using them.
@@ -139,15 +139,13 @@ impl<'a> Tokenizer<'a> {
         } else {
             match value_string.parse::<u8>() {
                 Ok(value) => Some(Ok(value)),
-                Err(_) => {
-                    Some(Err(TokenizerError::LiteralValueTooLarge(Box::new(
-                        LiteralValueTooLarge {
-                            value_string,
-                            line: self.prev_pos.line,
-                            col: self.prev_pos.col,
-                        },
-                    ))))
-                }
+                Err(_) => Some(Err(TokenizerError::LiteralValueTooLarge(Box::new(
+                    LiteralValueTooLarge {
+                        value_string,
+                        line: self.prev_pos.line,
+                        col: self.prev_pos.col,
+                    },
+                )))),
             }
         }
     }
@@ -169,16 +167,14 @@ impl<'a> Tokenizer<'a> {
             Some(Ok(val)) => {
                 self.add_token(TokenKind::Operand(Operand::Literal(val)));
                 Ok(())
-            },
-            Some(Err(err)) => Err(err),
-            None => {
-                Err(TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
-                    MissingNumberAfterLiteralDenoter {
-                        line: self.prev_pos.line,
-                        col: self.prev_pos.col,
-                    },
-                )))
             }
+            Some(Err(err)) => Err(err),
+            None => Err(TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
+                MissingNumberAfterLiteralDenoter {
+                    line: self.prev_pos.line,
+                    col: self.prev_pos.col,
+                },
+            ))),
         }
     }
 
@@ -235,7 +231,7 @@ impl<'a> Tokenizer<'a> {
                 while let Some(&ch) = self.iter.peek() {
                     if ch == '\n' {
                         break;
-                    } 
+                    }
                     self.next();
                 }
             }

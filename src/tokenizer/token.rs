@@ -10,7 +10,7 @@ pub enum TokenKind {
     Newline,
     Semicolon,
     Comma,
-    LabelDefinition
+    LabelDefinition,
 }
 
 impl fmt::Display for TokenKind {
@@ -21,7 +21,7 @@ impl fmt::Display for TokenKind {
             TokenKind::Newline => write!(f, "newline"),
             TokenKind::Semicolon => write!(f, "semicolon"),
             TokenKind::Comma => write!(f, "comma"),
-            TokenKind::LabelDefinition => write!(f, "label definition")
+            TokenKind::LabelDefinition => write!(f, "label definition"),
         }
     }
 }
@@ -92,8 +92,10 @@ mod tests {
         assert_eq!(format!("{}", TokenKind::Newline), "newline");
         assert_eq!(format!("{}", TokenKind::Semicolon), "semicolon");
         assert_eq!(format!("{}", TokenKind::Comma), "comma");
-        assert_eq!(format!("{}", TokenKind::LabelDefinition), "label definition");
-
+        assert_eq!(
+            format!("{}", TokenKind::LabelDefinition),
+            "label definition"
+        );
     }
 
     #[test]

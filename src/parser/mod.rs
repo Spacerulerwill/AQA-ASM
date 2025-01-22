@@ -21,30 +21,28 @@ impl Parser<'_> {
     /// parse parses the tokens sequence to ensure that the tokens are in a valid order, and loads the instructions
     /// into the memory space. It will return an error if parsing fails and is also responsible for resolving label operands
     /// to their corresponding label. If there is a label operand without an associated label, an error will be returned.
-    pub fn parse(
-        tokens: Vec<Token>,
-    ) -> Result<([u8; 256], u8), ParserError> {
+    pub fn parse(tokens: Vec<Token>) -> Result<([u8; 256], u8), ParserError> {
         // Resolve labels
         let mut labels = HashMap::new();
         let mut program_size: u8 = 0;
         for token in &tokens {
             match token.kind {
-                TokenKind::Opcode(_) | TokenKind::Operand(_) => {
-                    match program_size.checked_add(1) {
-                        Some(new) => program_size = new,
-                        None => return Err(ParserError::ProgramTooLarge),
-                    }
-                }
+                TokenKind::Opcode(_) | TokenKind::Operand(_) => match program_size.checked_add(1) {
+                    Some(new) => program_size = new,
+                    None => return Err(ParserError::ProgramTooLarge),
+                },
                 TokenKind::LabelDefinition => {
                     let label_definition_lexeme = &token.lexeme;
                     let mut label_name = label_definition_lexeme.clone();
                     label_name.pop();
                     if labels.contains_key(&label_name) {
-                        return Err(ParserError::LabelDuplicateDefinition(Box::new(LabelDuplicateDefinition{
-                            name: label_name,
-                            line: token.line,
-                            col: token.col
-                        })));
+                        return Err(ParserError::LabelDuplicateDefinition(Box::new(
+                            LabelDuplicateDefinition {
+                                name: label_name,
+                                line: token.line,
+                                col: token.col,
+                            },
+                        )));
                     }
                     labels.insert(label_name, program_size);
                 }
@@ -171,7 +169,9 @@ impl Parser<'_> {
             // write all operands
             for (operand, token) in operands_and_tokens {
                 match operand {
-                    Operand::Literal(val) | Operand::Register(val) | Operand::MemoryRef(val) => self.write_memory(val),
+                    Operand::Literal(val) | Operand::Register(val) | Operand::MemoryRef(val) => {
+                        self.write_memory(val)
+                    }
                     // resolve labels
                     Operand::Label => match self.labels.get(&token.lexeme) {
                         Some(&byte) => self.write_memory(byte),
@@ -272,15 +272,12 @@ mod tests {
 
                 // Check they are the same
                 let mut labels = HashMap::new();
-                labels.insert(
-                    String::from("test"),
-                    127,
-                );
+                labels.insert(String::from("test"), 127);
                 let mut memory = [0; 256];
                 let mut parser = Parser {
                     labels,
                     token_iter: tokens.into_iter().peekable(),
-                    memory_iter: memory.iter_mut()
+                    memory_iter: memory.iter_mut(),
                 };
                 parser.internal_parse().unwrap();
                 assert_eq!(memory, expected);
@@ -516,7 +513,7 @@ mod tests {
         for _ in 0..256 {
             tokens.extend_from_slice(&[
                 Token::new(TokenKind::Opcode(SourceOpcode::Halt), "HALT", 1, 1),
-                Token::new(TokenKind::Semicolon, ";", 1, 1)
+                Token::new(TokenKind::Semicolon, ";", 1, 1),
             ]);
         }
         let result = Parser::parse(tokens).unwrap_err();
@@ -528,13 +525,13 @@ mod tests {
     fn test_parser_error_duplicate_label_definition() {
         let tokens = vec![
             Token::new(TokenKind::LabelDefinition, "test:", 1, 1),
-            Token::new(TokenKind::LabelDefinition, "test:", 1, 1)
+            Token::new(TokenKind::LabelDefinition, "test:", 1, 1),
         ];
         let result = Parser::parse(tokens).unwrap_err();
-        let expected = ParserError::LabelDuplicateDefinition(Box::new(LabelDuplicateDefinition{
+        let expected = ParserError::LabelDuplicateDefinition(Box::new(LabelDuplicateDefinition {
             name: String::from("test"),
             line: 1,
-            col: 1
+            col: 1,
         }));
         assert_eq!(result, expected);
     }

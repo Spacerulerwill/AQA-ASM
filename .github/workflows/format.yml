@@ -1,0 +1,17 @@
+name: format
+
+on: [pull_request, push]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: format
+        run: |
+          cargo fmt --check

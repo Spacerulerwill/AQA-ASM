@@ -12,8 +12,7 @@ use inline_colorization::{color_green, color_red, color_reset, style_bold, style
 use interpreter::{Interpreter, RuntimeError, REGISTER_COUNT};
 use parser::{Parser, ParserError};
 use std::{
-    fmt,
-    fs,
+    fmt, fs,
     io::{self, BufRead, BufReader, Write},
 };
 use tokenizer::{Tokenizer, TokenizerError};
@@ -49,7 +48,6 @@ macro_rules! bad_print {
     };
 }
 
-
 #[derive(Debug)]
 enum Error {
     FailedToReadFile { filepath: String, reason: String },
@@ -61,7 +59,9 @@ enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::FailedToReadFile { filepath, reason } => write!(f, "Failed to read file '{filepath}': {reason}"),
+            Error::FailedToReadFile { filepath, reason } => {
+                write!(f, "Failed to read file '{filepath}': {reason}")
+            }
             Error::TokenizerError(tokenizer_error) => write!(f, "{tokenizer_error}"),
             Error::ParserError(parser_error) => write!(f, "{parser_error}"),
             Error::RuntimeError(runtime_error) => write!(f, "{runtime_error}"),
@@ -78,8 +78,10 @@ fn run_interpreter<R: BufRead, W: Write>(
     writer: W,
 ) -> Result<(Vec<u8>, [u8; 13]), Error> {
     // Read in source file
-    let source = fs::read_to_string(filepath)
-        .map_err(|err| Error::FailedToReadFile { filepath: filepath.to_string(), reason: err.to_string() })?;
+    let source = fs::read_to_string(filepath).map_err(|err| Error::FailedToReadFile {
+        filepath: filepath.to_string(),
+        reason: err.to_string(),
+    })?;
 
     // Tokenize source code string
     let tokenizer = Tokenizer::tokenize(&source, tabsize).map_err(Error::TokenizerError)?;
@@ -101,14 +103,8 @@ fn run_interpreter<R: BufRead, W: Write>(
     );
 
     // Execute the program and handle errors
-    Interpreter::interpret_custom_io(
-        &mut memory,
-        &mut registers,
-        program_bytes,
-        reader,
-        writer,
-    )
-    .map_err(Error::RuntimeError)?;
+    Interpreter::interpret_custom_io(&mut memory, &mut registers, program_bytes, reader, writer)
+        .map_err(Error::RuntimeError)?;
 
     good_print!("Program exited successfully");
 
@@ -173,7 +169,8 @@ mod tests {
         let reader = BufReader::new(Cursor::new(inputs));
         let writer = Cursor::new(&mut output);
 
-        let (_, registers) = run_interpreter("examples/subtraction.aqasm", 4, reader, writer).unwrap();
+        let (_, registers) =
+            run_interpreter("examples/subtraction.aqasm", 4, reader, writer).unwrap();
         assert_eq!(registers[2], 29);
     }
 
@@ -186,7 +183,8 @@ mod tests {
         let reader = BufReader::new(Cursor::new(inputs));
         let writer = Cursor::new(&mut output);
 
-        let (_, registers) = run_interpreter("examples/multiplication.aqasm", 4, reader, writer).unwrap();
+        let (_, registers) =
+            run_interpreter("examples/multiplication.aqasm", 4, reader, writer).unwrap();
         assert_eq!(registers[3], 25);
     }
 
@@ -199,7 +197,8 @@ mod tests {
         let reader = BufReader::new(Cursor::new(inputs));
         let writer = Cursor::new(&mut output);
 
-        let (_, registers) = run_interpreter("examples/hamming_weight.aqasm", 4, reader, writer).unwrap();
+        let (_, registers) =
+            run_interpreter("examples/hamming_weight.aqasm", 4, reader, writer).unwrap();
         assert_eq!(registers[2], 2);
     }
 
@@ -212,7 +211,8 @@ mod tests {
         let reader = BufReader::new(Cursor::new(inputs));
         let writer = Cursor::new(&mut output);
 
-        let (_, registers) = run_interpreter("examples/do_while_loop.aqasm", 4, reader, writer).unwrap();
+        let (_, registers) =
+            run_interpreter("examples/do_while_loop.aqasm", 4, reader, writer).unwrap();
         assert_eq!(registers[1], 4);
     }
 
@@ -246,6 +246,12 @@ mod tests {
             io::stdout(),
         );
 
-        assert!(matches!(result.unwrap_err(), Error::FailedToReadFile { filepath: _, reason: _ }));
+        assert!(matches!(
+            result.unwrap_err(),
+            Error::FailedToReadFile {
+                filepath: _,
+                reason: _
+            }
+        ));
     }
 }
