@@ -74,9 +74,9 @@ mod tests {
 
     #[test]
     fn test_token_new() {
-        let token = Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1);
+        let token = Token::new(TokenKind::Opcode(SourceOpcode::Mov), "MOV", 1, 1);
 
-        assert_eq!(token.kind, TokenKind::Opcode(SourceOpcode::MOV));
+        assert_eq!(token.kind, TokenKind::Opcode(SourceOpcode::Mov));
         assert_eq!(token.lexeme, "MOV");
         assert_eq!(token.line, 1);
         assert_eq!(token.col, 1);
@@ -85,10 +85,10 @@ mod tests {
     #[test]
     fn test_token_kind_display() {
         let operand = TokenKind::Operand(Operand::Register(3));
-        let opcode = TokenKind::Opcode(SourceOpcode::MOV);
+        let opcode = TokenKind::Opcode(SourceOpcode::Mov);
 
-        assert_eq!(format!("{}", operand), format!("{}", Operand::Register(3)));
-        assert_eq!(format!("{}", opcode), format!("{}", SourceOpcode::MOV));
+        assert_eq!(format!("{operand}"), format!("{}", Operand::Register(3)));
+        assert_eq!(format!("{opcode}"), format!("{}", SourceOpcode::Mov));
         assert_eq!(format!("{}", TokenKind::Newline), "newline");
         assert_eq!(format!("{}", TokenKind::Semicolon), "semicolon");
         assert_eq!(format!("{}", TokenKind::Comma), "comma");

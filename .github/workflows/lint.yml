@@ -1,0 +1,18 @@
+name: lint
+
+on: [pull_request, push]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: lint
+        run: |
+          cargo clippy --all-targets --all-features

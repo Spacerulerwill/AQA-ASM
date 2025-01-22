@@ -1,4 +1,7 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::enum_variant_names)]
 
 mod interpreter;
 mod parser;
@@ -6,13 +9,14 @@ mod tokenizer;
 
 use clap::Parser as ClapParser;
 use inline_colorization::{color_green, color_red, color_reset, style_bold, style_reset};
-use interpreter::{Interpreter, REGISTER_COUNT};
-use parser::Parser;
+use interpreter::{Interpreter, RuntimeError, REGISTER_COUNT};
+use parser::{Parser, ParserError};
 use std::{
+    fmt,
     fs,
     io::{self, BufRead, BufReader, Write},
 };
-use tokenizer::Tokenizer;
+use tokenizer::{Tokenizer, TokenizerError};
 
 /// An interpreter for the AQA assembly language
 #[derive(ClapParser, Debug)]
@@ -45,22 +49,44 @@ macro_rules! bad_print {
     };
 }
 
-pub fn run_interpreter<R: BufRead, W: Write>(
+
+#[derive(Debug)]
+enum Error {
+    FailedToReadFile { filepath: String, reason: String },
+    TokenizerError(TokenizerError),
+    ParserError(ParserError),
+    RuntimeError(RuntimeError),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::FailedToReadFile { filepath, reason } => write!(f, "Failed to read file '{filepath}': {reason}"),
+            Error::TokenizerError(tokenizer_error) => write!(f, "{tokenizer_error}"),
+            Error::ParserError(parser_error) => write!(f, "{parser_error}"),
+            Error::RuntimeError(runtime_error) => write!(f, "{runtime_error}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+fn run_interpreter<R: BufRead, W: Write>(
     filepath: &str,
     tabsize: u8,
     reader: R,
     writer: W,
-) -> Result<(Vec<u8>, [u8; 13]), String> {
+) -> Result<(Vec<u8>, [u8; 13]), Error> {
     // Read in source file
     let source = fs::read_to_string(filepath)
-        .map_err(|err| format!("Failed to read the file {}: {}", filepath, err))?;
+        .map_err(|err| Error::FailedToReadFile { filepath: filepath.to_string(), reason: err.to_string() })?;
 
     // Tokenize source code string
-    let tokenizer = Tokenizer::tokenize(&source, tabsize).map_err(|err| err.to_string())?;
+    let tokenizer = Tokenizer::tokenize(&source, tabsize).map_err(Error::TokenizerError)?;
 
     // Parse and load the instructions into memory
     let (mut memory, program_bytes) =
-        Parser::parse(tokenizer.tokens).map_err(|err| err.to_string())?;
+        Parser::parse(tokenizer.tokens).map_err(Error::ParserError)?;
 
     // Run the program
     let free_memory = u8::MAX.wrapping_sub(program_bytes).wrapping_add(1);
@@ -82,7 +108,7 @@ pub fn run_interpreter<R: BufRead, W: Write>(
         reader,
         writer,
     )
-    .map_err(|err| err.to_string())?;
+    .map_err(Error::RuntimeError)?;
 
     good_print!("Program exited successfully");
 
@@ -100,13 +126,14 @@ fn main() {
         BufReader::new(io::stdin()),
         io::stdout(),
     ) {
-        bad_print!("{}", err);
+        bad_print!("{err}");
     }
 }
 
 #[cfg(test)]
 mod tests {
     use io::Cursor;
+    use std::fmt::Write;
 
     use super::*;
 
@@ -200,17 +227,18 @@ mod tests {
 
         let (_, _) = run_interpreter("examples/for_loop.aqasm", 4, reader, writer).unwrap();
         let output_str = String::from_utf8(output).unwrap();
-        let expected_output: String = (0..=254).map(|n| format!("{}\n", n)).collect();
+        let expected_output = (0..=254).fold(String::new(), |mut output, n| {
+            let _ = writeln!(output, "{n}");
+            output
+        });
         assert_eq!(output_str, expected_output);
     }
 
     #[test]
     fn test_run_interpreter_file_not_found() {
-        // Arrange
         let invalid_file = "invalid_file.asm";
         let tabsize = 4;
 
-        // Act
         let result = run_interpreter(
             invalid_file,
             tabsize,
@@ -218,8 +246,6 @@ mod tests {
             io::stdout(),
         );
 
-        // Assert
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Failed to read the file"));
+        assert!(matches!(result.unwrap_err(), Error::FailedToReadFile { filepath: _, reason: _ }));
     }
 }

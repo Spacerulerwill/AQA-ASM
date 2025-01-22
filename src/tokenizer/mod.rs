@@ -26,7 +26,7 @@ impl<'a> Tokenizer<'a> {
     pub fn tokenize(input: &'a str, tabsize: u8) -> Result<Self, TokenizerError> {
         let mut tokenizer = Tokenizer {
             tokens: Vec::new(),
-            input: input,
+            input,
             iter: input.chars().peekable(),
             prev_pos: TokenPosition::default(),
             current_pos: TokenPosition::default(),
@@ -37,7 +37,7 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// tokenize takes in an input source code string and returns a Vec of tokens and
-    /// a HashMap of label definitions to their corresponding byte position and the
+    /// a `HashMap` of label definitions to their corresponding byte position and the
     /// amount of bytes the resulting progam will use. There are multiple types of token:
     /// * Newlines / Semicolons (both are used a line delimeters)
     /// * Commas
@@ -47,6 +47,7 @@ impl<'a> Tokenizer<'a> {
     /// * Opcodes (A string of chars that make any of our opcodes)
     /// * Label operands (A string of chars)
     /// * Label definitions (A string of chars followed by a colon)
+    /// 
     /// Label checking does not happen in this stage. All label operands are initialised
     /// with the value 0. The next stage, parsing and instruction loading, will verify
     /// that labels are correct and exist when using them.
@@ -63,9 +64,9 @@ impl<'a> Tokenizer<'a> {
             }
 
             match ch {
-                '\n' => self.add_single_char_token(TokenKind::Newline)?,
-                ';' => self.add_single_char_token(TokenKind::Semicolon)?,
-                ',' => self.add_single_char_token(TokenKind::Comma)?,
+                '\n' => self.add_single_char_token(TokenKind::Newline),
+                ';' => self.add_single_char_token(TokenKind::Semicolon),
+                ',' => self.add_single_char_token(TokenKind::Comma),
                 '0'..='9' => self.tokenize_memory_reference()?,
                 'a'..='z' | 'A'..='Z' | '_' => self.tokenize_identifier()?,
                 '#' => self.tokenize_literal()?,
@@ -92,13 +93,13 @@ impl<'a> Tokenizer<'a> {
                     self.current_pos.line += 1;
                     self.current_pos.col = 1;
                 }
-                '\t' => self.current_pos.col += self.tabsize as usize,
+                '\t' => self.current_pos.col += self.tabsize,
                 _ => self.current_pos.col += 1,
             }
             self.current_pos.idx += ch.len_utf8();
             return Some(ch);
         }
-        return None;
+        None
     }
 
     /// Consume a string of characters while a condition is met
@@ -132,14 +133,14 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn consume_u8(&mut self) -> Option<Result<u8, TokenizerError>> {
-        let value_string = self.consume_while(|ch| ch.is_digit(10));
-        if value_string == "" {
+        let value_string = self.consume_while(|ch| ch.is_ascii_digit());
+        if value_string.is_empty() {
             None
         } else {
             match value_string.parse::<u8>() {
                 Ok(value) => Some(Ok(value)),
                 Err(_) => {
-                    return Some(Err(TokenizerError::LiteralValueTooLarge(Box::new(
+                    Some(Err(TokenizerError::LiteralValueTooLarge(Box::new(
                         LiteralValueTooLarge {
                             value_string,
                             line: self.prev_pos.line,
@@ -151,10 +152,9 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    fn add_single_char_token(&mut self, kind: TokenKind) -> Result<(), TokenizerError> {
+    fn add_single_char_token(&mut self, kind: TokenKind) {
         self.next();
         self.add_token(kind);
-        Ok(())
     }
 
     fn tokenize_memory_reference(&mut self) -> Result<(), TokenizerError> {
@@ -168,11 +168,11 @@ impl<'a> Tokenizer<'a> {
         match self.consume_u8() {
             Some(Ok(val)) => {
                 self.add_token(TokenKind::Operand(Operand::Literal(val)));
-                return Ok(())
+                Ok(())
             },
-            Some(Err(err)) => return Err(err),
+            Some(Err(err)) => Err(err),
             None => {
-                return Err(TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
+                Err(TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
                     MissingNumberAfterLiteralDenoter {
                         line: self.prev_pos.line,
                         col: self.prev_pos.col,
@@ -235,15 +235,14 @@ impl<'a> Tokenizer<'a> {
                 while let Some(&ch) = self.iter.peek() {
                     if ch == '\n' {
                         break;
-                    } else {
-                        self.next();
-                    }
+                    } 
+                    self.next();
                 }
             }
             // Comment starts with a /* so its multiline
             Some('*') => loop {
                 match self.next() {
-                    Some(ch) if ch == '*' => {
+                    Some('*') => {
                         if self.iter.peek() == Some(&'/') {
                             self.next(); // Consume the '/'
                             break; // Exit the loop
@@ -310,27 +309,27 @@ mod tests {
             ("#12", TokenKind::Operand(Operand::Literal(12))),
             ("R3", TokenKind::Operand(Operand::Register(3))),
             ("label_operand", TokenKind::Operand(Operand::Label)),
-            ("NOP", TokenKind::Opcode(SourceOpcode::NOP)),
-            ("LDR", TokenKind::Opcode(SourceOpcode::LDR)),
-            ("STR", TokenKind::Opcode(SourceOpcode::STR)),
-            ("ADD", TokenKind::Opcode(SourceOpcode::ADD)),
-            ("SUB", TokenKind::Opcode(SourceOpcode::SUB)),
-            ("MOV", TokenKind::Opcode(SourceOpcode::MOV)),
-            ("CMP", TokenKind::Opcode(SourceOpcode::CMP)),
+            ("NOP", TokenKind::Opcode(SourceOpcode::Nop)),
+            ("LDR", TokenKind::Opcode(SourceOpcode::Ldr)),
+            ("STR", TokenKind::Opcode(SourceOpcode::Str)),
+            ("ADD", TokenKind::Opcode(SourceOpcode::Add)),
+            ("SUB", TokenKind::Opcode(SourceOpcode::Sub)),
+            ("MOV", TokenKind::Opcode(SourceOpcode::Mov)),
+            ("CMP", TokenKind::Opcode(SourceOpcode::Cmp)),
             ("B", TokenKind::Opcode(SourceOpcode::B)),
-            ("BEQ", TokenKind::Opcode(SourceOpcode::BEQ)),
-            ("BNE", TokenKind::Opcode(SourceOpcode::BNE)),
-            ("BGT", TokenKind::Opcode(SourceOpcode::BGT)),
-            ("BLT", TokenKind::Opcode(SourceOpcode::BLT)),
-            ("AND", TokenKind::Opcode(SourceOpcode::AND)),
-            ("ORR", TokenKind::Opcode(SourceOpcode::ORR)),
-            ("EOR", TokenKind::Opcode(SourceOpcode::EOR)),
-            ("MVN", TokenKind::Opcode(SourceOpcode::MVN)),
-            ("LSL", TokenKind::Opcode(SourceOpcode::LSL)),
-            ("LSR", TokenKind::Opcode(SourceOpcode::LSR)),
-            ("PRINT", TokenKind::Opcode(SourceOpcode::PRINT)),
-            ("INPUT", TokenKind::Opcode(SourceOpcode::INPUT)),
-            ("HALT", TokenKind::Opcode(SourceOpcode::HALT)),
+            ("BEQ", TokenKind::Opcode(SourceOpcode::Beq)),
+            ("BNE", TokenKind::Opcode(SourceOpcode::Bne)),
+            ("BGT", TokenKind::Opcode(SourceOpcode::Bgt)),
+            ("BLT", TokenKind::Opcode(SourceOpcode::Blt)),
+            ("AND", TokenKind::Opcode(SourceOpcode::And)),
+            ("ORR", TokenKind::Opcode(SourceOpcode::Orr)),
+            ("EOR", TokenKind::Opcode(SourceOpcode::Eor)),
+            ("MVN", TokenKind::Opcode(SourceOpcode::Mvn)),
+            ("LSL", TokenKind::Opcode(SourceOpcode::Lsl)),
+            ("LSR", TokenKind::Opcode(SourceOpcode::Lsr)),
+            ("PRINT", TokenKind::Opcode(SourceOpcode::Print)),
+            ("INPUT", TokenKind::Opcode(SourceOpcode::Input)),
+            ("HALT", TokenKind::Opcode(SourceOpcode::Halt)),
         ] {
             test_token_type_sequence(input, &[expected_output]);
         }
@@ -338,14 +337,14 @@ mod tests {
 
     #[test]
     fn test_comment_line_single() {
-        test_token_type_sequence("NOP // Comment", &[TokenKind::Opcode(SourceOpcode::NOP)]);
+        test_token_type_sequence("NOP // Comment", &[TokenKind::Opcode(SourceOpcode::Nop)]);
     }
 
     #[test]
     fn test_comment_line_multiline() {
         test_token_type_sequence(
             "NOP /* Multiline \n Comment */",
-            &[TokenKind::Opcode(SourceOpcode::NOP)],
+            &[TokenKind::Opcode(SourceOpcode::Nop)],
         );
     }
 
@@ -354,8 +353,8 @@ mod tests {
         test_token_type_sequence(
             "NOP /* Multiline \n Comment \n */ NOP",
             &[
-                TokenKind::Opcode(SourceOpcode::NOP),
-                TokenKind::Opcode(SourceOpcode::NOP),
+                TokenKind::Opcode(SourceOpcode::Nop),
+                TokenKind::Opcode(SourceOpcode::Nop),
             ],
         );
     }
@@ -436,7 +435,7 @@ mod tests {
                 line: 1,
                 col: 1
             }))
-        )
+        );
     }
 
     #[test]
@@ -472,7 +471,7 @@ mod tests {
                 line: 1,
                 col: 13
             }))
-        )
+        );
     }
 
     #[rustfmt::skip]
@@ -498,6 +497,6 @@ R11 /* bruh */ LDR ;\t// hello!
                 (8, 1), (8,5), (8,8), (8,12), (8,16), (8,18), (8,19),
                 (9, 1), (9,6), (9,12), (9,14), (9,24), (9,34),
             ]
-        )
+        );
     }
 }

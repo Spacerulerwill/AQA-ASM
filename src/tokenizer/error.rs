@@ -9,7 +9,7 @@ pub enum TokenizerError {
     MissingNumberAfterRegisterDenoter(Box<MissingNumberAfterRegisterDenoter>),
     /// Literal value '#' without a number following
     MissingNumberAfterLiteralDenoter(Box<MissingNumberAfterLiteralDenoter>),
-    /// Invalid register number (greater than REGISTER_COUNT)
+    /// Invalid register number (greater than `REGISTER_COUNT`)
     InvalidRegisterNumber(Box<InvalidRegisterNumber>),
     /// Missing a */ delimeter for a block comment
     UnterminatedBlockComment(Box<UnterminatedBlockComment>),

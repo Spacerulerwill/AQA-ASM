@@ -5,7 +5,7 @@ use crate::{
     tokenizer::{Token, TokenKind},
 };
 use inline_colorization::{color_red, color_reset, style_bold, style_reset};
-use std::fmt;
+use std::fmt::{self, Write};
 
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
@@ -46,7 +46,7 @@ impl fmt::Display for ParserError {
                 None => String::from("Expected operand but found EOF"),
             },
             ParserError::ExpectedTokenKind(err) => {
-                assert!(err.candidates.len() > 0);
+                assert!(!err.candidates.is_empty());
                 if err.candidates.len() == 1 {
                     match &err.got {
                         Some(token) => format!(
@@ -74,11 +74,13 @@ impl fmt::Display for ParserError {
                         ),
                     }
                 } else {
-                    let candidates_string: String = err
-                        .candidates
-                        .iter()
-                        .map(|c| format!("• {}\n", c))
-                        .collect();
+                    let candidates_string = err.candidates.iter().fold(
+                        String::new(), |mut output, c| {
+                            let _ = writeln!(output, "• {c}");
+                            output
+                        } 
+                    );
+
                     match &err.got {
                         Some(token) => format!("Line {}, Column {} :: Expected one of the following:\n{}but found token {}", token.line, token.col, &candidates_string, &token.get_token_debug_repr()),
                         None => format!("Expected one of the following:\n{}but found EOF", &candidates_string)
@@ -106,7 +108,7 @@ impl fmt::Display for ParserError {
                     .map(|(_, signature)| {
                         signature
                             .iter()
-                            .map(|arg| arg.to_string())
+                            .map(std::string::ToString::to_string)
                             .collect::<Vec<String>>() // Collect to a Vec<String>
                             .join(", ") // Ensure this does not add unwanted spaces
                     })
@@ -269,8 +271,8 @@ but found token 'label'",
             ),
             (
                 ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
-                    opcode_token: Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 50, 50),
-                    source_opcode: SourceOpcode::HALT,
+                    opcode_token: Token::new(TokenKind::Opcode(SourceOpcode::Halt), "HALT", 50, 50),
+                    source_opcode: SourceOpcode::Halt,
                     received: vec![Operand::Register(0)],
                 })),
                 "Line 50, Column 50 :: 'HALT register' is not a valid signature! Potential signatures are listed below:
@@ -278,8 +280,8 @@ but found token 'label'",
             ),
             (
                 ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
-                    opcode_token: Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 500, 20),
-                    source_opcode: SourceOpcode::MOV,
+                    opcode_token: Token::new(TokenKind::Opcode(SourceOpcode::Mov), "MOV", 500, 20),
+                    source_opcode: SourceOpcode::Mov,
                     received: vec![Operand::Register(0), Operand::Register(0), Operand::Register(0)],
                 })),
                 "Line 500, Column 20 :: 'MOV register, register, register' is not a valid signature! Potential signatures are listed below:

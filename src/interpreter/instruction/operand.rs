@@ -22,7 +22,7 @@ impl fmt::Display for Operand {
 }
 
 impl Operand {
-    pub fn get_signature_argument(&self) -> SignatureArgument {
+    pub fn get_signature_argument(self) -> SignatureArgument {
         match self {
             Operand::Literal(_) => SignatureArgument::Literal,
             Operand::Register(_) => SignatureArgument::Register,
@@ -45,8 +45,8 @@ mod tests {
             (Operand::Label, "Label"),
         ];
 
-        for (operand, expected) in test_cases.iter() {
-            assert_eq!(format!("{}", operand), *expected);
+        for (operand, expected) in &test_cases {
+            assert_eq!(format!("{operand}"), *expected);
         }
     }
 
@@ -59,7 +59,7 @@ mod tests {
             (Operand::Label, SignatureArgument::Label),
         ];
 
-        for (operand, expected) in test_cases.iter() {
+        for (operand, expected) in &test_cases {
             assert_eq!(operand.get_signature_argument(), *expected);
         }
     }

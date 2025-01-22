@@ -17,7 +17,7 @@ pub struct Parser<'a> {
     memory_iter: IterMut<'a, u8>,
 }
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     /// parse parses the tokens sequence to ensure that the tokens are in a valid order, and loads the instructions
     /// into the memory space. It will return an error if parsing fails and is also responsible for resolving label operands
     /// to their corresponding label. If there is a label operand without an associated label, an error will be returned.
@@ -27,7 +27,7 @@ impl<'a> Parser<'a> {
         // Resolve labels
         let mut labels = HashMap::new();
         let mut program_size: u8 = 0;
-        for token in tokens.iter() {
+        for token in &tokens {
             match token.kind {
                 TokenKind::Opcode(_) | TokenKind::Operand(_) => {
                     match program_size.checked_add(1) {
@@ -39,7 +39,7 @@ impl<'a> Parser<'a> {
                     let label_definition_lexeme = &token.lexeme;
                     let mut label_name = label_definition_lexeme.clone();
                     label_name.pop();
-                    if labels.get(&label_name).is_some() {
+                    if labels.contains_key(&label_name) {
                         return Err(ParserError::LabelDuplicateDefinition(Box::new(LabelDuplicateDefinition{
                             name: label_name,
                             line: token.line,
@@ -55,7 +55,7 @@ impl<'a> Parser<'a> {
         let mut memory = [0; 256];
         let mut parser = Parser {
             token_iter: tokens.into_iter().peekable(),
-            labels: labels,
+            labels,
             memory_iter: memory.iter_mut(),
         };
         parser.internal_parse()?;
@@ -97,9 +97,9 @@ impl<'a> Parser<'a> {
                 }))),
             }
         } else {
-            return Err(ParserError::ExpectedOperand(Box::new(ExpectedOperand {
+            Err(ParserError::ExpectedOperand(Box::new(ExpectedOperand {
                 got: None,
-            })));
+            })))
         }
     }
 
@@ -171,9 +171,7 @@ impl<'a> Parser<'a> {
             // write all operands
             for (operand, token) in operands_and_tokens {
                 match operand {
-                    Operand::Literal(val) => self.write_memory(val),
-                    Operand::Register(val) => self.write_memory(val),
-                    Operand::MemoryRef(val) => self.write_memory(val),
+                    Operand::Literal(val) | Operand::Register(val) | Operand::MemoryRef(val) => self.write_memory(val),
                     // resolve labels
                     Operand::Label => match self.labels.get(&token.lexeme) {
                         Some(&byte) => self.write_memory(byte),
@@ -215,34 +213,34 @@ mod tests {
 
     fn load_test_program(program: &[u8]) -> [u8; 256] {
         let mut memory = [0; 256];
-        memory[..program.len()].copy_from_slice(&program);
+        memory[..program.len()].copy_from_slice(program);
         memory
     }
 
     #[test]
     fn test_parse_valid_instructions() {
         for source_opcode in [
-            SourceOpcode::NOP,
-            SourceOpcode::LDR,
-            SourceOpcode::STR,
-            SourceOpcode::ADD,
-            SourceOpcode::SUB,
-            SourceOpcode::MOV,
-            SourceOpcode::CMP,
+            SourceOpcode::Nop,
+            SourceOpcode::Ldr,
+            SourceOpcode::Str,
+            SourceOpcode::Add,
+            SourceOpcode::Sub,
+            SourceOpcode::Mov,
+            SourceOpcode::Cmp,
             SourceOpcode::B,
-            SourceOpcode::BEQ,
-            SourceOpcode::BNE,
-            SourceOpcode::BGT,
-            SourceOpcode::BLT,
-            SourceOpcode::AND,
-            SourceOpcode::ORR,
-            SourceOpcode::EOR,
-            SourceOpcode::MVN,
-            SourceOpcode::LSL,
-            SourceOpcode::LSR,
-            SourceOpcode::PRINT,
-            SourceOpcode::INPUT,
-            SourceOpcode::HALT,
+            SourceOpcode::Beq,
+            SourceOpcode::Bne,
+            SourceOpcode::Bgt,
+            SourceOpcode::Blt,
+            SourceOpcode::And,
+            SourceOpcode::Orr,
+            SourceOpcode::Eor,
+            SourceOpcode::Mvn,
+            SourceOpcode::Lsl,
+            SourceOpcode::Lsr,
+            SourceOpcode::Print,
+            SourceOpcode::Input,
+            SourceOpcode::Halt,
         ] {
             let operand_combinations =
                 SIGNATURE_TREE.get_all_valid_operand_combinations_for_source_opcode(source_opcode);
@@ -299,7 +297,7 @@ mod tests {
         HALT;;;;
         */
         let tokens = vec![
-            Token::new(TokenKind::Opcode(SourceOpcode::PRINT), "PRINT", 1, 1),
+            Token::new(TokenKind::Opcode(SourceOpcode::Print), "PRINT", 1, 1),
             Token::new(TokenKind::Operand(Operand::Register(0)), "R0", 1, 7),
             Token::new(TokenKind::Semicolon, ";", 1, 9),
             Token::new(TokenKind::Semicolon, ";", 1, 10),
@@ -310,7 +308,7 @@ mod tests {
             Token::new(TokenKind::Newline, "\n", 2, 2),
             Token::new(TokenKind::Semicolon, ";", 3, 1),
             Token::new(TokenKind::Newline, "\n", 3, 2),
-            Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 4, 1),
+            Token::new(TokenKind::Opcode(SourceOpcode::Halt), "HALT", 4, 1),
             Token::new(TokenKind::Semicolon, ";", 4, 5),
             Token::new(TokenKind::Semicolon, ";", 4, 6),
             Token::new(TokenKind::Semicolon, ";", 4, 7),
@@ -319,9 +317,9 @@ mod tests {
         ];
         let result = Parser::parse(tokens).unwrap();
         let program = &[
-            RuntimeOpcode::PRINT_REGISTER as u8,
+            RuntimeOpcode::PrintRegister as u8,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let expected = (load_test_program(program), program.len() as u8);
         assert_eq!(result, expected);
@@ -332,10 +330,10 @@ mod tests {
         // Test for every branch instruction
         for source_opcode in [
             SourceOpcode::B,
-            SourceOpcode::BEQ,
-            SourceOpcode::BNE,
-            SourceOpcode::BGT,
-            SourceOpcode::BLT,
+            SourceOpcode::Beq,
+            SourceOpcode::Bne,
+            SourceOpcode::Bgt,
+            SourceOpcode::Blt,
         ] {
             let tokens = vec![
                 Token::new(TokenKind::Opcode(source_opcode), "", 1, 1),
@@ -346,7 +344,7 @@ mod tests {
             let expected = ParserError::InvalidLabel(Box::new(InvalidLabel {
                 token: Token::new(TokenKind::Operand(Operand::Label), "branch", 1, 1000),
             }));
-            assert_eq!(result, expected)
+            assert_eq!(result, expected);
         }
     }
 
@@ -361,7 +359,7 @@ mod tests {
         //HALT; R4
         let register = Token::new(TokenKind::Operand(Operand::Register(4)), "R4", 1, 7);
         let tokens = vec![
-            Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1),
+            Token::new(TokenKind::Opcode(SourceOpcode::Halt), "HALT", 1, 1),
             Token::new(TokenKind::Semicolon, ";", 1, 5),
             register.clone(),
         ];
@@ -376,7 +374,7 @@ mod tests {
         // Expected an operand but received an incorrect token
         let semicolon = Token::new(TokenKind::Semicolon, ";", 1, 9);
         let tokens = vec![
-            Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1),
+            Token::new(TokenKind::Opcode(SourceOpcode::Mov), "MOV", 1, 1),
             Token::new(TokenKind::Operand(Operand::Register(4)), "R4", 1, 5),
             Token::new(TokenKind::Comma, ",", 1, 7),
             semicolon.clone(),
@@ -389,7 +387,7 @@ mod tests {
         // MOV R4,
         // Expected an operand but received EOF
         let tokens = vec![
-            Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1),
+            Token::new(TokenKind::Opcode(SourceOpcode::Mov), "MOV", 1, 1),
             Token::new(TokenKind::Operand(Operand::Register(4)), "R4", 1, 5),
             Token::new(TokenKind::Comma, ",", 1, 7),
         ];
@@ -401,9 +399,9 @@ mod tests {
     #[test]
     fn test_parse_error_expected_line_delimeter() {
         // HALT HALT
-        let halt = Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 6);
+        let halt = Token::new(TokenKind::Opcode(SourceOpcode::Halt), "HALT", 1, 6);
         let tokens = vec![
-            Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1),
+            Token::new(TokenKind::Opcode(SourceOpcode::Halt), "HALT", 1, 1),
             halt.clone(),
         ];
         let result = Parser::parse(tokens).unwrap_err();
@@ -414,7 +412,7 @@ mod tests {
         assert_eq!(result, expected);
         // HALT
         let tokens = vec![Token::new(
-            TokenKind::Opcode(SourceOpcode::HALT),
+            TokenKind::Opcode(SourceOpcode::Halt),
             "HALT",
             1,
             1,
@@ -428,7 +426,7 @@ mod tests {
         // HALT,
         let comma = Token::new(TokenKind::Comma, ",", 1, 5);
         let tokens = vec![
-            Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1),
+            Token::new(TokenKind::Opcode(SourceOpcode::Halt), "HALT", 1, 1),
             comma.clone(),
         ];
         let result = Parser::parse(tokens).unwrap_err();
@@ -444,7 +442,7 @@ mod tests {
         // MOV R4 R5;
         let register = Token::new(TokenKind::Operand(Operand::Register(5)), "R5", 1, 8);
         let tokens = vec![
-            Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1),
+            Token::new(TokenKind::Opcode(SourceOpcode::Mov), "MOV", 1, 1),
             Token::new(TokenKind::Operand(Operand::Register(4)), "R4", 1, 5),
             register.clone(),
             Token::new(TokenKind::Semicolon, ";", 1, 10),
@@ -454,13 +452,13 @@ mod tests {
             candidates: vec![TokenKind::Comma],
             got: Some(register),
         }));
-        assert_eq!(result, expected)
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn test_parse_error_invalid_instruction_signature() {
         // Instruction with 0 operands given some
-        let opcode = Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1);
+        let opcode = Token::new(TokenKind::Opcode(SourceOpcode::Halt), "HALT", 1, 1);
         let tokens = vec![
             opcode.clone(),
             Token::new(TokenKind::Operand(Operand::Register(0)), "R0", 1, 1),
@@ -470,25 +468,25 @@ mod tests {
         let expected =
             ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
                 opcode_token: opcode,
-                source_opcode: SourceOpcode::HALT,
+                source_opcode: SourceOpcode::Halt,
                 received: vec![Operand::Register(0)],
             }));
         assert_eq!(result, expected);
 
         // Instruciton with multiple operands given none
-        let opcode = Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1);
+        let opcode = Token::new(TokenKind::Opcode(SourceOpcode::Mov), "MOV", 1, 1);
         let tokens = vec![opcode.clone(), Token::new(TokenKind::Semicolon, ";", 1, 1)];
         let result = Parser::parse(tokens).unwrap_err();
         let expected =
             ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
                 opcode_token: opcode,
-                source_opcode: SourceOpcode::MOV,
+                source_opcode: SourceOpcode::Mov,
                 received: vec![],
             }));
         assert_eq!(result, expected);
 
         // Instruction given incorrect amount
-        let opcode = Token::new(TokenKind::Opcode(SourceOpcode::MOV), "MOV", 1, 1);
+        let opcode = Token::new(TokenKind::Opcode(SourceOpcode::Mov), "MOV", 1, 1);
         let tokens = vec![
             opcode.clone(),
             Token::new(TokenKind::Operand(Operand::Register(0)), "R0", 1, 1),
@@ -502,7 +500,7 @@ mod tests {
         let expected =
             ParserError::InvalidInstructionSignature(Box::new(InvalidInstructionSignature {
                 opcode_token: opcode,
-                source_opcode: SourceOpcode::MOV,
+                source_opcode: SourceOpcode::Mov,
                 received: vec![
                     Operand::Register(0),
                     Operand::Register(0),
@@ -517,7 +515,7 @@ mod tests {
         let mut tokens = Vec::new();
         for _ in 0..256 {
             tokens.extend_from_slice(&[
-                Token::new(TokenKind::Opcode(SourceOpcode::HALT), "HALT", 1, 1),
+                Token::new(TokenKind::Opcode(SourceOpcode::Halt), "HALT", 1, 1),
                 Token::new(TokenKind::Semicolon, ";", 1, 1)
             ]);
         }

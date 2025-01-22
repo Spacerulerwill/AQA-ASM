@@ -7,72 +7,72 @@ use super::{operand::Operand, runtime_opcode::RuntimeOpcode, source_opcode::Sour
 pub static SIGNATURE_TREE: Lazy<SignatureTree> = Lazy::new(|| {
     let mut tree = SignatureTree::new();
 
-    tree.add_signature(SourceOpcode::NOP, &[], RuntimeOpcode::NOP);
+    tree.add_signature(SourceOpcode::Nop, &[], RuntimeOpcode::Nop);
     tree.add_signature(
-        SourceOpcode::LDR,
+        SourceOpcode::Ldr,
         &[SignatureArgument::Register, SignatureArgument::MemoryRef],
-        RuntimeOpcode::LDR,
+        RuntimeOpcode::Ldr,
     );
     tree.add_signature(
-        SourceOpcode::STR,
+        SourceOpcode::Str,
         &[SignatureArgument::Register, SignatureArgument::MemoryRef],
-        RuntimeOpcode::STR,
+        RuntimeOpcode::Str,
     );
     tree.add_signature(
-        SourceOpcode::ADD,
+        SourceOpcode::Add,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Literal,
         ],
-        RuntimeOpcode::ADD_LITERAL,
+        RuntimeOpcode::AddLiteral,
     );
     tree.add_signature(
-        SourceOpcode::ADD,
+        SourceOpcode::Add,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Register,
         ],
-        RuntimeOpcode::ADD_REGISTER,
+        RuntimeOpcode::AddRegister,
     );
     tree.add_signature(
-        SourceOpcode::SUB,
+        SourceOpcode::Sub,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Literal,
         ],
-        RuntimeOpcode::SUB_LITERAL,
+        RuntimeOpcode::SubLiteral,
     );
     tree.add_signature(
-        SourceOpcode::SUB,
+        SourceOpcode::Sub,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Register,
         ],
-        RuntimeOpcode::SUB_REGISTER,
+        RuntimeOpcode::SubRegister,
     );
     tree.add_signature(
-        SourceOpcode::MOV,
+        SourceOpcode::Mov,
         &[SignatureArgument::Register, SignatureArgument::Literal],
-        RuntimeOpcode::MOV_LITERAL,
+        RuntimeOpcode::MovLiteral,
     );
     tree.add_signature(
-        SourceOpcode::MOV,
+        SourceOpcode::Mov,
         &[SignatureArgument::Register, SignatureArgument::Register],
-        RuntimeOpcode::MOV_REGISTER,
+        RuntimeOpcode::MovRegister,
     );
     tree.add_signature(
-        SourceOpcode::CMP,
+        SourceOpcode::Cmp,
         &[SignatureArgument::Register, SignatureArgument::Literal],
-        RuntimeOpcode::CMP_LITERAL,
+        RuntimeOpcode::CmpLiteral,
     );
     tree.add_signature(
-        SourceOpcode::CMP,
+        SourceOpcode::Cmp,
         &[SignatureArgument::Register, SignatureArgument::Register],
-        RuntimeOpcode::CMP_REGISTER,
+        RuntimeOpcode::CmpRegister,
     );
     tree.add_signature(
         SourceOpcode::B,
@@ -80,145 +80,145 @@ pub static SIGNATURE_TREE: Lazy<SignatureTree> = Lazy::new(|| {
         RuntimeOpcode::B,
     );
     tree.add_signature(
-        SourceOpcode::BEQ,
+        SourceOpcode::Beq,
         &[SignatureArgument::Label],
-        RuntimeOpcode::BEQ,
+        RuntimeOpcode::Beq,
     );
     tree.add_signature(
-        SourceOpcode::BNE,
+        SourceOpcode::Bne,
         &[SignatureArgument::Label],
-        RuntimeOpcode::BNE,
+        RuntimeOpcode::Bne,
     );
     tree.add_signature(
-        SourceOpcode::BGT,
+        SourceOpcode::Bgt,
         &[SignatureArgument::Label],
-        RuntimeOpcode::BGT,
+        RuntimeOpcode::Bgt,
     );
     tree.add_signature(
-        SourceOpcode::BLT,
+        SourceOpcode::Blt,
         &[SignatureArgument::Label],
-        RuntimeOpcode::BLT,
+        RuntimeOpcode::Blt,
     );
     tree.add_signature(
-        SourceOpcode::AND,
+        SourceOpcode::And,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Literal,
         ],
-        RuntimeOpcode::AND_LITERAL,
+        RuntimeOpcode::AndLiteral,
     );
     tree.add_signature(
-        SourceOpcode::AND,
+        SourceOpcode::And,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Register,
         ],
-        RuntimeOpcode::AND_REGISTER,
+        RuntimeOpcode::AndRegister,
     );
     tree.add_signature(
-        SourceOpcode::ORR,
-        &[
-            SignatureArgument::Register,
-            SignatureArgument::Register,
-            SignatureArgument::Literal,
-        ],
-        RuntimeOpcode::ORR_LITERAL,
-    );
-    tree.add_signature(
-        SourceOpcode::ORR,
-        &[
-            SignatureArgument::Register,
-            SignatureArgument::Register,
-            SignatureArgument::Register,
-        ],
-        RuntimeOpcode::ORR_REGISTER,
-    );
-    tree.add_signature(
-        SourceOpcode::EOR,
+        SourceOpcode::Orr,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Literal,
         ],
-        RuntimeOpcode::EOR_LITERAL,
+        RuntimeOpcode::OrrLiteral,
     );
     tree.add_signature(
-        SourceOpcode::EOR,
+        SourceOpcode::Orr,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Register,
         ],
-        RuntimeOpcode::EOR_REGISTER,
+        RuntimeOpcode::OrrRegister,
     );
     tree.add_signature(
-        SourceOpcode::MVN,
+        SourceOpcode::Eor,
+        &[
+            SignatureArgument::Register,
+            SignatureArgument::Register,
+            SignatureArgument::Literal,
+        ],
+        RuntimeOpcode::EorLiteral,
+    );
+    tree.add_signature(
+        SourceOpcode::Eor,
+        &[
+            SignatureArgument::Register,
+            SignatureArgument::Register,
+            SignatureArgument::Register,
+        ],
+        RuntimeOpcode::EorRegister,
+    );
+    tree.add_signature(
+        SourceOpcode::Mvn,
         &[SignatureArgument::Register, SignatureArgument::Literal],
-        RuntimeOpcode::MVN_LITERAL,
+        RuntimeOpcode::MvnLiteral,
     );
     tree.add_signature(
-        SourceOpcode::MVN,
+        SourceOpcode::Mvn,
         &[SignatureArgument::Register, SignatureArgument::Register],
-        RuntimeOpcode::MVN_REGISTER,
+        RuntimeOpcode::MvnRegister,
     );
     tree.add_signature(
-        SourceOpcode::LSL,
+        SourceOpcode::Lsl,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Literal,
         ],
-        RuntimeOpcode::LSL_LITERAL,
+        RuntimeOpcode::LslLiteral,
     );
     tree.add_signature(
-        SourceOpcode::LSL,
+        SourceOpcode::Lsl,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Register,
         ],
-        RuntimeOpcode::LSL_REGISTER,
+        RuntimeOpcode::LslRegister,
     );
     tree.add_signature(
-        SourceOpcode::LSR,
+        SourceOpcode::Lsr,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Literal,
         ],
-        RuntimeOpcode::LSR_LITERAL,
+        RuntimeOpcode::LsrLiteral,
     );
     tree.add_signature(
-        SourceOpcode::LSR,
+        SourceOpcode::Lsr,
         &[
             SignatureArgument::Register,
             SignatureArgument::Register,
             SignatureArgument::Register,
         ],
-        RuntimeOpcode::LSR_REGISTER,
+        RuntimeOpcode::LsrRegister,
     );
-    tree.add_signature(SourceOpcode::HALT, &[], RuntimeOpcode::HALT);
+    tree.add_signature(SourceOpcode::Halt, &[], RuntimeOpcode::Halt);
     tree.add_signature(
-        SourceOpcode::PRINT,
+        SourceOpcode::Print,
         &[SignatureArgument::Register],
-        RuntimeOpcode::PRINT_REGISTER,
+        RuntimeOpcode::PrintRegister,
     );
     tree.add_signature(
-        SourceOpcode::PRINT,
+        SourceOpcode::Print,
         &[SignatureArgument::MemoryRef],
-        RuntimeOpcode::PRINT_MEMORY,
+        RuntimeOpcode::PrintMemory,
     );
     tree.add_signature(
-        SourceOpcode::INPUT,
+        SourceOpcode::Input,
         &[SignatureArgument::Register],
-        RuntimeOpcode::INPUT_REGISTER,
+        RuntimeOpcode::InputRegister,
     );
     tree.add_signature(
-        SourceOpcode::INPUT,
+        SourceOpcode::Input,
         &[SignatureArgument::MemoryRef],
-        RuntimeOpcode::INPUT_MEMORY,
+        RuntimeOpcode::InputMemory,
     );
 
     tree
@@ -354,8 +354,8 @@ mod tests {
             (SignatureArgument::Literal, "literal"),
         ];
 
-        for (arg, expected) in test_cases.iter() {
-            assert_eq!(format!("{}", arg), *expected);
+        for (arg, expected) in &test_cases {
+            assert_eq!(format!("{arg}"), *expected);
         }
     }
 
@@ -363,14 +363,14 @@ mod tests {
     fn test_matches_signature_mov_register_register() {
         let mut tree = SignatureTree::new();
         tree.add_signature(
-            SourceOpcode::MOV,
+            SourceOpcode::Mov,
             &[SignatureArgument::Register, SignatureArgument::Register],
-            RuntimeOpcode::MOV_REGISTER,
+            RuntimeOpcode::MovRegister,
         );
         let operands = &[Operand::Register(1), Operand::Register(2)];
         assert_eq!(
-            tree.matches_signature(SourceOpcode::MOV, operands),
-            Some(RuntimeOpcode::MOV_REGISTER)
+            tree.matches_signature(SourceOpcode::Mov, operands),
+            Some(RuntimeOpcode::MovRegister)
         );
     }
 
@@ -378,24 +378,24 @@ mod tests {
     fn test_matches_signature_mov_register_literal() {
         let mut tree = SignatureTree::new();
         tree.add_signature(
-            SourceOpcode::MOV,
+            SourceOpcode::Mov,
             &[SignatureArgument::Register, SignatureArgument::Literal],
-            RuntimeOpcode::MOV_LITERAL,
+            RuntimeOpcode::MovLiteral,
         );
         let operands = &[Operand::Register(1), Operand::Literal(42)];
         assert_eq!(
-            tree.matches_signature(SourceOpcode::MOV, operands),
-            Some(RuntimeOpcode::MOV_LITERAL)
+            tree.matches_signature(SourceOpcode::Mov, operands),
+            Some(RuntimeOpcode::MovLiteral)
         );
     }
 
     #[test]
     fn test_matches_signature_nop() {
         let mut tree = SignatureTree::new();
-        tree.add_signature(SourceOpcode::NOP, &[], RuntimeOpcode::NOP);
+        tree.add_signature(SourceOpcode::Nop, &[], RuntimeOpcode::Nop);
         assert_eq!(
-            tree.matches_signature(SourceOpcode::NOP, &[]),
-            Some(RuntimeOpcode::NOP)
+            tree.matches_signature(SourceOpcode::Nop, &[]),
+            Some(RuntimeOpcode::Nop)
         );
     }
 
@@ -403,13 +403,13 @@ mod tests {
     fn test_matches_signature_no_match_multi_argument() {
         let mut tree = SignatureTree::new();
         tree.add_signature(
-            SourceOpcode::MOV,
+            SourceOpcode::Mov,
             &[SignatureArgument::Register, SignatureArgument::Register],
-            RuntimeOpcode::MOV_REGISTER,
+            RuntimeOpcode::MovRegister,
         );
         assert_eq!(
             tree.matches_signature(
-                SourceOpcode::MOV,
+                SourceOpcode::Mov,
                 &[Operand::Register(1), Operand::Literal(42)]
             ),
             None
@@ -419,9 +419,9 @@ mod tests {
     #[test]
     fn test_matches_signature_no_match_no_argument() {
         let mut tree = SignatureTree::new();
-        tree.add_signature(SourceOpcode::NOP, &[], RuntimeOpcode::NOP);
+        tree.add_signature(SourceOpcode::Nop, &[], RuntimeOpcode::Nop);
         assert_eq!(
-            tree.matches_signature(SourceOpcode::NOP, &[Operand::Register(3)]),
+            tree.matches_signature(SourceOpcode::Nop, &[Operand::Register(3)]),
             None
         );
     }
@@ -430,49 +430,49 @@ mod tests {
     fn test_matches_signature_extra_operand() {
         let mut tree = SignatureTree::new();
         tree.add_signature(
-            SourceOpcode::MOV,
+            SourceOpcode::Mov,
             &[SignatureArgument::Register, SignatureArgument::Register],
-            RuntimeOpcode::MOV_REGISTER,
+            RuntimeOpcode::MovRegister,
         );
         let operands = &[
             Operand::Register(1),
             Operand::Register(2),
             Operand::Literal(42),
         ];
-        assert_eq!(tree.matches_signature(SourceOpcode::MOV, operands), None);
+        assert_eq!(tree.matches_signature(SourceOpcode::Mov, operands), None);
     }
 
     #[test]
     fn test_matches_signature_unknown_opcode() {
         let tree = SignatureTree::new();
         let operands = &[Operand::Register(2)];
-        assert_eq!(tree.matches_signature(SourceOpcode::NOP, operands), None);
+        assert_eq!(tree.matches_signature(SourceOpcode::Nop, operands), None);
     }
 
     #[test]
     fn test_get_all_valid_operand_combinations_for_source_opcode_empty() {
         let mut tree = SignatureTree::new();
-        tree.add_signature(SourceOpcode::HALT, &[], RuntimeOpcode::HALT);
+        tree.add_signature(SourceOpcode::Halt, &[], RuntimeOpcode::Halt);
         assert_eq!(
-            tree.get_all_valid_operand_combinations_for_source_opcode(SourceOpcode::HALT),
-            vec![(RuntimeOpcode::HALT, vec![])]
+            tree.get_all_valid_operand_combinations_for_source_opcode(SourceOpcode::Halt),
+            vec![(RuntimeOpcode::Halt, vec![])]
         );
     }
 
     #[test]
     fn test_get_all_valid_operand_combinations_for_source_opcode_one_arg() {
         let mut tree = SignatureTree::new();
-        tree.add_signature(SourceOpcode::HALT, &[], RuntimeOpcode::HALT);
+        tree.add_signature(SourceOpcode::Halt, &[], RuntimeOpcode::Halt);
         tree.add_signature(
-            SourceOpcode::HALT,
+            SourceOpcode::Halt,
             &[SignatureArgument::Register],
-            RuntimeOpcode::HALT,
+            RuntimeOpcode::Halt,
         );
         assert_eq!(
-            tree.get_all_valid_operand_combinations_for_source_opcode(SourceOpcode::HALT),
+            tree.get_all_valid_operand_combinations_for_source_opcode(SourceOpcode::Halt),
             vec![
-                (RuntimeOpcode::HALT, vec![]),
-                (RuntimeOpcode::HALT, vec![SignatureArgument::Register])
+                (RuntimeOpcode::Halt, vec![]),
+                (RuntimeOpcode::Halt, vec![SignatureArgument::Register])
             ]
         );
     }
@@ -480,33 +480,33 @@ mod tests {
     #[test]
     fn test_get_all_valid_operand_combinations_for_source_opcode_multiple_args() {
         let mut tree = SignatureTree::new();
-        tree.add_signature(SourceOpcode::HALT, &[], RuntimeOpcode::HALT);
+        tree.add_signature(SourceOpcode::Halt, &[], RuntimeOpcode::Halt);
         tree.add_signature(
-            SourceOpcode::HALT,
+            SourceOpcode::Halt,
             &[SignatureArgument::Register],
-            RuntimeOpcode::HALT,
+            RuntimeOpcode::Halt,
         );
         tree.add_signature(
-            SourceOpcode::HALT,
+            SourceOpcode::Halt,
             &[SignatureArgument::Register, SignatureArgument::Register],
-            RuntimeOpcode::HALT,
+            RuntimeOpcode::Halt,
         );
         tree.add_signature(
-            SourceOpcode::HALT,
+            SourceOpcode::Halt,
             &[SignatureArgument::Register, SignatureArgument::Label],
-            RuntimeOpcode::HALT,
+            RuntimeOpcode::Halt,
         );
         assert_eq!(
-            tree.get_all_valid_operand_combinations_for_source_opcode(SourceOpcode::HALT),
+            tree.get_all_valid_operand_combinations_for_source_opcode(SourceOpcode::Halt),
             vec![
-                (RuntimeOpcode::HALT, vec![]),
-                (RuntimeOpcode::HALT, vec![SignatureArgument::Register]),
+                (RuntimeOpcode::Halt, vec![]),
+                (RuntimeOpcode::Halt, vec![SignatureArgument::Register]),
                 (
-                    RuntimeOpcode::HALT,
+                    RuntimeOpcode::Halt,
                     vec![SignatureArgument::Register, SignatureArgument::Register]
                 ),
                 (
-                    RuntimeOpcode::HALT,
+                    RuntimeOpcode::Halt,
                     vec![SignatureArgument::Register, SignatureArgument::Label]
                 ),
             ]

@@ -81,45 +81,45 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
 
             let opcode: RuntimeOpcode = match instruction.try_into() {
                 Ok(opcode) => opcode,
-                Err(_) => panic!(
+                Err(()) => panic!(
                     "Invalid opcode found while running program, please report as bug to author!"
                 ),
             };
 
             match opcode {
-                RuntimeOpcode::NOP => {}
-                RuntimeOpcode::LDR => self.interpret_ldr()?,
-                RuntimeOpcode::STR => self.interpret_str()?,
-                RuntimeOpcode::ADD_REGISTER => self.interpret_add_register()?,
-                RuntimeOpcode::ADD_LITERAL => self.interpret_add_literal()?,
-                RuntimeOpcode::SUB_REGISTER => self.interpret_sub_register()?,
-                RuntimeOpcode::SUB_LITERAL => self.interpret_sub_literal()?,
-                RuntimeOpcode::MOV_REGISTER => self.interpret_mov_register()?,
-                RuntimeOpcode::MOV_LITERAL => self.interpret_mov_literal()?,
-                RuntimeOpcode::CMP_REGISTER => self.interpret_cmp_register()?,
-                RuntimeOpcode::CMP_LITERAL => self.interpret_cmp_literal()?,
+                RuntimeOpcode::Nop => {}
+                RuntimeOpcode::Ldr => self.interpret_ldr()?,
+                RuntimeOpcode::Str => self.interpret_str()?,
+                RuntimeOpcode::AddRegister => self.interpret_add_register()?,
+                RuntimeOpcode::AddLiteral => self.interpret_add_literal()?,
+                RuntimeOpcode::SubRegister => self.interpret_sub_register()?,
+                RuntimeOpcode::SubLiteral => self.interpret_sub_literal()?,
+                RuntimeOpcode::MovRegister => self.interpret_mov_register()?,
+                RuntimeOpcode::MovLiteral => self.interpret_mov_literal()?,
+                RuntimeOpcode::CmpRegister => self.interpret_cmp_register()?,
+                RuntimeOpcode::CmpLiteral => self.interpret_cmp_literal()?,
                 RuntimeOpcode::B => self.interpret_b()?,
-                RuntimeOpcode::BEQ => self.interpret_beq()?,
-                RuntimeOpcode::BNE => self.interpret_bne()?,
-                RuntimeOpcode::BGT => self.interpret_bgt()?,
-                RuntimeOpcode::BLT => self.interpret_blt()?,
-                RuntimeOpcode::AND_REGISTER => self.interpret_and_register()?,
-                RuntimeOpcode::AND_LITERAL => self.interpret_and_literal()?,
-                RuntimeOpcode::ORR_REGISTER => self.interpret_orr_register()?,
-                RuntimeOpcode::ORR_LITERAL => self.interpret_orr_literal()?,
-                RuntimeOpcode::EOR_REGISTER => self.interpret_eor_register()?,
-                RuntimeOpcode::EOR_LITERAL => self.interpret_eor_literal()?,
-                RuntimeOpcode::MVN_REGISTER => self.interpret_mvn_register()?,
-                RuntimeOpcode::MVN_LITERAL => self.interpret_mvn_literal()?,
-                RuntimeOpcode::LSL_REGISTER => self.interpret_lsl_register()?,
-                RuntimeOpcode::LSL_LITERAL => self.interpret_lsl_literal()?,
-                RuntimeOpcode::LSR_REGISTER => self.interpret_lsr_register()?,
-                RuntimeOpcode::LSR_LITERAL => self.interpret_lsr_literal()?,
-                RuntimeOpcode::PRINT_REGISTER => self.interpret_print_register()?,
-                RuntimeOpcode::PRINT_MEMORY => self.interpret_print_memory()?,
-                RuntimeOpcode::INPUT_REGISTER => self.interpret_input_register()?,
-                RuntimeOpcode::INPUT_MEMORY => self.interpret_input_memory()?,
-                RuntimeOpcode::HALT => break,
+                RuntimeOpcode::Beq => self.interpret_beq()?,
+                RuntimeOpcode::Bne => self.interpret_bne()?,
+                RuntimeOpcode::Bgt => self.interpret_bgt()?,
+                RuntimeOpcode::Blt => self.interpret_blt()?,
+                RuntimeOpcode::AndRegister => self.interpret_and_register()?,
+                RuntimeOpcode::AndLiteral => self.interpret_and_literal()?,
+                RuntimeOpcode::OrrRegister => self.interpret_orr_register()?,
+                RuntimeOpcode::OrrLiteral => self.interpret_orr_literal()?,
+                RuntimeOpcode::EorRegister => self.interpret_eor_register()?,
+                RuntimeOpcode::EorLiteral => self.interpret_eor_literal()?,
+                RuntimeOpcode::MvnRegister => self.interpret_mvn_register()?,
+                RuntimeOpcode::MvnLiteral => self.interpret_mvn_literal()?,
+                RuntimeOpcode::LslRegister => self.interpret_lsl_register()?,
+                RuntimeOpcode::LslLiteral => self.interpret_lsl_literal()?,
+                RuntimeOpcode::LsrRegister => self.interpret_lsr_register()?,
+                RuntimeOpcode::LsrLiteral => self.interpret_lsr_literal()?,
+                RuntimeOpcode::PrintRegister => self.interpret_print_register()?,
+                RuntimeOpcode::PrintMemory => self.interpret_print_memory()?,
+                RuntimeOpcode::InputRegister => self.interpret_input_register()?,
+                RuntimeOpcode::InputMemory => self.interpret_input_memory()?,
+                RuntimeOpcode::Halt => break,
             }
         }
         Ok(())
@@ -135,18 +135,12 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
     }
 
     fn read_memory_address(&self, idx: u8) -> Result<u8, RuntimeError> {
-        let new_address = match self.program_bytes.checked_add(idx) {
-            Some(new) => new,
-            None => return Err(RuntimeError::OutOfBoundsRead(idx as usize)),
-        };
+        let Some(new_address) = self.program_bytes.checked_add(idx) else { return Err(RuntimeError::OutOfBoundsRead(idx as usize))};
         Ok(self.memory[new_address as usize])
     }
 
     fn write_memory_address(&mut self, val: u8, idx: u8) -> Result<(), RuntimeError> {
-        let new_address = match self.program_bytes.checked_add(idx) {
-            Some(new) => new,
-            None => return Err(RuntimeError::OutOfBoundsWrite(idx as usize)),
-        };
+        let Some(new_address) = self.program_bytes.checked_add(idx) else { return Err(RuntimeError::OutOfBoundsWrite(idx as usize))};
         self.memory[new_address as usize] = val; 
         Ok(())
     }
@@ -349,7 +343,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         let register_store = self.read_next_memory_address()? as usize;
         let register_operand_1 = self.registers[self.read_next_memory_address()? as usize];
         let register_operand_2 = self.registers[self.read_next_memory_address()? as usize];
-        self.registers[register_store] = register_operand_1.wrapping_shl(register_operand_2 as u32);
+        self.registers[register_store] = register_operand_1.wrapping_shl(u32::from(register_operand_2));
         Ok(())
     }
 
@@ -357,7 +351,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         let register_store = self.read_next_memory_address()? as usize;
         let register_operand_1 = self.registers[self.read_next_memory_address()? as usize];
         let literal_operand_2 = self.read_next_memory_address()?;
-        self.registers[register_store] = register_operand_1.wrapping_shl(literal_operand_2 as u32);
+        self.registers[register_store] = register_operand_1.wrapping_shl(u32::from(literal_operand_2));
         Ok(())
     }
 
@@ -365,7 +359,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         let register_store = self.read_next_memory_address()? as usize;
         let register_operand_1 = self.registers[self.read_next_memory_address()? as usize];
         let register_operand_2 = self.registers[self.read_next_memory_address()? as usize];
-        self.registers[register_store] = register_operand_1.wrapping_shr(register_operand_2 as u32);
+        self.registers[register_store] = register_operand_1.wrapping_shr(u32::from(register_operand_2));
         Ok(())
     }
 
@@ -373,7 +367,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
         let register_store = self.read_next_memory_address()? as usize;
         let register_operand_1 = self.registers[self.read_next_memory_address()? as usize];
         let literal_operand_2 = self.read_next_memory_address()?;
-        self.registers[register_store] = register_operand_1.wrapping_shr(literal_operand_2 as u32);
+        self.registers[register_store] = register_operand_1.wrapping_shr(u32::from(literal_operand_2));
         Ok(())
     }
 
@@ -415,17 +409,17 @@ mod tests {
 
     fn load_test_program(program: &[u8]) -> [u8; 256] {
         let mut memory = [0; 256];
-        memory[..program.len()].copy_from_slice(&program);
+        memory[..program.len()].copy_from_slice(program);
         memory
     }
 
     #[test]
     fn test_nop() {
-        let program = [RuntimeOpcode::NOP as u8, RuntimeOpcode::HALT as u8];
+        let program = [RuntimeOpcode::Nop as u8, RuntimeOpcode::Halt as u8];
         let mut memory = load_test_program(&program);
-        let memory_copy = memory.clone();
+        let memory_copy = memory;
         let mut registers = [0; REGISTER_COUNT as usize];
-        let registers_copy = registers.clone();
+        let registers_copy = registers;
         Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(memory, memory_copy);
         assert_eq!(registers, registers_copy);
@@ -433,7 +427,7 @@ mod tests {
 
     #[test]
     fn test_ldr() {
-        let program = [RuntimeOpcode::LDR as u8, 0, 0, RuntimeOpcode::HALT as u8, 5];
+        let program = [RuntimeOpcode::Ldr as u8, 0, 0, RuntimeOpcode::Halt as u8, 5];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         Interpreter::interpret(&mut memory, &mut registers, program.len() as u8 - 1).unwrap();
@@ -442,7 +436,7 @@ mod tests {
 
     #[test]
     fn test_str() {
-        let program = [RuntimeOpcode::STR as u8, 0, 0, RuntimeOpcode::HALT as u8];
+        let program = [RuntimeOpcode::Str as u8, 0, 0, RuntimeOpcode::Halt as u8];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         registers[0] = 5;
@@ -453,15 +447,15 @@ mod tests {
     #[test]
     fn test_add() {
         let program = [
-            RuntimeOpcode::ADD_LITERAL as u8,
+            RuntimeOpcode::AddLiteral as u8,
             0,
             0,
             5,
-            RuntimeOpcode::ADD_REGISTER as u8,
+            RuntimeOpcode::AddRegister as u8,
             1,
             1,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -473,15 +467,15 @@ mod tests {
     #[test]
     fn test_sub() {
         let program = [
-            RuntimeOpcode::SUB_LITERAL as u8,
+            RuntimeOpcode::SubLiteral as u8,
             0,
             0,
             5,
-            RuntimeOpcode::SUB_REGISTER as u8,
+            RuntimeOpcode::SubRegister as u8,
             1,
             1,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -495,13 +489,13 @@ mod tests {
     #[test]
     fn test_mov() {
         let program = [
-            RuntimeOpcode::MOV_LITERAL as u8,
+            RuntimeOpcode::MovLiteral as u8,
             0,
             5,
-            RuntimeOpcode::MOV_REGISTER as u8,
+            RuntimeOpcode::MovRegister as u8,
             1,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -514,40 +508,40 @@ mod tests {
     fn test_cmp_equal_numbers() {
         // Comparison of register 0 and value 0
         let program = &[
-            RuntimeOpcode::CMP_LITERAL as u8,
+            RuntimeOpcode::CmpLiteral as u8,
             0,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(program);
         let mut registers = [0; REGISTER_COUNT as usize];
         let interpreter =
             Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 0);
-        assert_eq!(interpreter.underflow, false);
+        assert!(!interpreter.underflow);
 
         // Comparison of contents of register 0 and 1 (both have values of 0)
         let program = &[
-            RuntimeOpcode::CMP_REGISTER as u8,
+            RuntimeOpcode::CmpRegister as u8,
             0,
             1,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(program);
         let interpreter =
             Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 0);
-        assert_eq!(interpreter.underflow, false);
+        assert!(!interpreter.underflow);
     }
 
     #[test]
     fn test_cmp_greater_than() {
         // Comparison of register 0 (value of 5) and value 0
         let program = &[
-            RuntimeOpcode::CMP_LITERAL as u8,
+            RuntimeOpcode::CmpLiteral as u8,
             0,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory: [u8; 256] = load_test_program(program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -555,29 +549,29 @@ mod tests {
         let interpreter =
             Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 5);
-        assert_eq!(interpreter.underflow, false);
+        assert!(!interpreter.underflow);
 
         let program = &[
-            RuntimeOpcode::CMP_REGISTER as u8,
+            RuntimeOpcode::CmpRegister as u8,
             0,
             1,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(program);
         let interpreter =
             Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 5);
-        assert_eq!(interpreter.underflow, false);
+        assert!(!interpreter.underflow);
     }
 
     #[test]
     fn test_cmp_less_than() {
         // Comparison of register 0 (value of 0) and value 5
         let program = &[
-            RuntimeOpcode::CMP_LITERAL as u8,
+            RuntimeOpcode::CmpLiteral as u8,
             0,
             5,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory: [u8; 256] = load_test_program(program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -585,20 +579,20 @@ mod tests {
         let interpreter =
             Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 251);
-        assert_eq!(interpreter.underflow, true);
+        assert!(interpreter.underflow);
 
         // Comaparison of register 0 (value of 0) and register 1 (value of 5)
         let program = &[
-            RuntimeOpcode::CMP_REGISTER as u8,
+            RuntimeOpcode::CmpRegister as u8,
             0,
             1,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(program);
         let interpreter =
             Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(interpreter.comparison_result, 251);
-        assert_eq!(interpreter.underflow, true);
+        assert!(interpreter.underflow);
     }
 
     #[test]
@@ -606,8 +600,8 @@ mod tests {
         let program = [
             RuntimeOpcode::B as u8,
             3,
-            RuntimeOpcode::HALT as u8,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -620,10 +614,10 @@ mod tests {
     fn test_beq() {
         // Successful BEQ
         let program = [
-            RuntimeOpcode::BEQ as u8,
+            RuntimeOpcode::Beq as u8,
             3,
-            RuntimeOpcode::HALT as u8,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -651,10 +645,10 @@ mod tests {
     fn test_bne() {
         // Successful BNE
         let program = [
-            RuntimeOpcode::BNE as u8,
+            RuntimeOpcode::Bne as u8,
             3,
-            RuntimeOpcode::HALT as u8,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -682,10 +676,10 @@ mod tests {
     fn test_bgt() {
         // Successful BGT - num is greater
         let program = [
-            RuntimeOpcode::BGT as u8,
+            RuntimeOpcode::Bgt as u8,
             3,
-            RuntimeOpcode::HALT as u8,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -720,10 +714,10 @@ mod tests {
     fn test_blt() {
         // Successful BLT - num is greater
         let program = [
-            RuntimeOpcode::BLT as u8,
+            RuntimeOpcode::Blt as u8,
             3,
-            RuntimeOpcode::HALT as u8,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -757,15 +751,15 @@ mod tests {
     #[test]
     fn test_and() {
         let program = [
-            RuntimeOpcode::AND_LITERAL as u8,
+            RuntimeOpcode::AndLiteral as u8,
             0,
             0,
             0b11110000,
-            RuntimeOpcode::AND_REGISTER as u8,
+            RuntimeOpcode::AndRegister as u8,
             1,
             1,
             2,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -780,15 +774,15 @@ mod tests {
     #[test]
     fn test_orr() {
         let program = [
-            RuntimeOpcode::ORR_LITERAL as u8,
+            RuntimeOpcode::OrrLiteral as u8,
             0,
             0,
             0b00001111,
-            RuntimeOpcode::ORR_REGISTER as u8,
+            RuntimeOpcode::OrrRegister as u8,
             1,
             1,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -801,15 +795,15 @@ mod tests {
     #[test]
     fn test_eor() {
         let program = [
-            RuntimeOpcode::EOR_LITERAL as u8,
+            RuntimeOpcode::EorLiteral as u8,
             0,
             0,
             0b00001111,
-            RuntimeOpcode::EOR_REGISTER as u8,
+            RuntimeOpcode::EorRegister as u8,
             1,
             1,
             1,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -823,13 +817,13 @@ mod tests {
     #[test]
     fn test_mvn() {
         let program = [
-            RuntimeOpcode::MVN_LITERAL as u8,
+            RuntimeOpcode::MvnLiteral as u8,
             0,
             0b00001111,
-            RuntimeOpcode::MVN_REGISTER as u8,
+            RuntimeOpcode::MvnRegister as u8,
             1,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -843,15 +837,15 @@ mod tests {
     #[test]
     fn test_lsl() {
         let program = [
-            RuntimeOpcode::LSL_LITERAL as u8,
+            RuntimeOpcode::LslLiteral as u8,
             0,
             0,
             4,
-            RuntimeOpcode::LSL_REGISTER as u8,
+            RuntimeOpcode::LslRegister as u8,
             1,
             1,
             2,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -866,15 +860,15 @@ mod tests {
     #[test]
     fn test_lsr() {
         let program = [
-            RuntimeOpcode::LSR_LITERAL as u8,
+            RuntimeOpcode::LsrLiteral as u8,
             0,
             0,
             4,
-            RuntimeOpcode::LSR_REGISTER as u8,
+            RuntimeOpcode::LsrRegister as u8,
             1,
             1,
             2,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -890,9 +884,9 @@ mod tests {
     fn test_interpret_print_register() {
         // Setup
         let program = [
-            RuntimeOpcode::PRINT_REGISTER as u8,
+            RuntimeOpcode::PrintRegister as u8,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -923,9 +917,9 @@ mod tests {
     fn test_print_memory() {
         // Setup
         let program = [
-            RuntimeOpcode::PRINT_MEMORY as u8,
+            RuntimeOpcode::PrintMemory as u8,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         memory[program.len()] = 42;
@@ -956,9 +950,9 @@ mod tests {
     fn test_interpret_input_register() {
         // Setup
         let program = [
-            RuntimeOpcode::INPUT_REGISTER as u8,
+            RuntimeOpcode::InputRegister as u8,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -988,9 +982,9 @@ mod tests {
     fn test_interpret_input_memory() {
         // Setup
         let program = [
-            RuntimeOpcode::INPUT_MEMORY as u8,
+            RuntimeOpcode::InputMemory as u8,
             0,
-            RuntimeOpcode::HALT as u8,
+            RuntimeOpcode::Halt as u8,
         ];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
@@ -1018,11 +1012,11 @@ mod tests {
 
     #[test]
     fn test_halt() {
-        let program = [RuntimeOpcode::HALT as u8];
+        let program = [RuntimeOpcode::Halt as u8];
         let mut memory = load_test_program(&program);
-        let memory_copy = memory.clone();
+        let memory_copy = memory;
         let mut registers = [0; REGISTER_COUNT as usize];
-        let registers_copy = registers.clone();
+        let registers_copy = registers;
         let interpreter =
             Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap();
         assert_eq!(*interpreter.memory, memory_copy);
@@ -1032,7 +1026,7 @@ mod tests {
 
     #[test]
     fn test_out_of_bounds_read() {
-        let program = [RuntimeOpcode::LDR as u8, 0, 253];
+        let program = [RuntimeOpcode::Ldr as u8, 0, 253];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert_eq!(
@@ -1043,7 +1037,7 @@ mod tests {
 
     #[test]
     fn test_out_of_bounds_write() {
-        let program = [RuntimeOpcode::STR as u8, 0, 253];
+        let program = [RuntimeOpcode::Str as u8, 0, 253];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert_eq!(
@@ -1060,18 +1054,18 @@ mod tests {
         assert_eq!(
             Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap_err(),
             RuntimeError::ReadPastMemory
-        )
+        );
     }
 
     #[test]
     fn test_read_past_max_memory() {
-        let program = [RuntimeOpcode::NOP as u8; 256];
+        let program = [RuntimeOpcode::Nop as u8; 256];
         let mut memory = load_test_program(&program);
         let mut registers = [0; REGISTER_COUNT as usize];
         assert_eq!(
             Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap_err(),
             RuntimeError::ReadPastMemory
-        )
+        );
     }
 
     #[test]
