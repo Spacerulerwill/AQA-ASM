@@ -117,7 +117,7 @@ impl<'a> Tokenizer<'a> {
         string
     }
 
-    fn add_token(&mut self, kind: TokenKind) -> Result<(), TokenizerError> {
+    fn add_token(&mut self, kind: TokenKind) {
         let mut lexeme = self.input[self.prev_pos.idx..self.current_pos.idx].to_string();
         if lexeme == "\n" {
             lexeme = String::from("\\n");
@@ -129,7 +129,6 @@ impl<'a> Tokenizer<'a> {
             self.prev_pos.col,
         ));
         self.prev_pos = self.current_pos.clone();
-        Ok(())
     }
 
     fn consume_u8(&mut self) -> Option<Result<u8, TokenizerError>> {
@@ -154,18 +153,23 @@ impl<'a> Tokenizer<'a> {
 
     fn add_single_char_token(&mut self, kind: TokenKind) -> Result<(), TokenizerError> {
         self.next();
-        self.add_token(kind)
+        self.add_token(kind);
+        Ok(())
     }
 
     fn tokenize_memory_reference(&mut self) -> Result<(), TokenizerError> {
         let value = self.consume_u8().unwrap()?;
-        self.add_token(TokenKind::Operand(Operand::MemoryRef(value)))
+        self.add_token(TokenKind::Operand(Operand::MemoryRef(value)));
+        Ok(())
     }
 
     fn tokenize_literal(&mut self) -> Result<(), TokenizerError> {
         self.next();
         match self.consume_u8() {
-            Some(Ok(val)) => self.add_token(TokenKind::Operand(Operand::Literal(val))),
+            Some(Ok(val)) => {
+                self.add_token(TokenKind::Operand(Operand::Literal(val)));
+                return Ok(())
+            },
             Some(Err(err)) => return Err(err),
             None => {
                 return Err(TokenizerError::MissingNumberAfterLiteralDenoter(Box::new(
@@ -193,7 +197,7 @@ impl<'a> Tokenizer<'a> {
                             },
                         )));
                     }
-                    self.add_token(TokenKind::Operand(Operand::Register(val)))?;
+                    self.add_token(TokenKind::Operand(Operand::Register(val)));
                     Ok(())
                 }
                 Some(Err(err)) => Err(err),
@@ -207,18 +211,18 @@ impl<'a> Tokenizer<'a> {
         }
         // Is it an opcode?
         if let Ok(source_opcode) = SourceOpcode::from_str(&identifier) {
-            self.add_token(TokenKind::Opcode(source_opcode))?;
+            self.add_token(TokenKind::Opcode(source_opcode));
             return Ok(());
         }
         // Is it a label definition? (i.e a ':' follows it)
         if let Some(':') = self.iter.peek() {
             // Move past the ':'
             self.next();
-            self.add_token(TokenKind::LabelDefinition)?;
+            self.add_token(TokenKind::LabelDefinition);
             return Ok(());
         }
         // It's a label operand
-        self.add_token(TokenKind::Operand(Operand::Label))?;
+        self.add_token(TokenKind::Operand(Operand::Label));
         Ok(())
     }
 
