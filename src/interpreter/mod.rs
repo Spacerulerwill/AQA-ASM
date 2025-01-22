@@ -3,7 +3,7 @@ pub use error::*;
 use instruction::runtime_opcode::RuntimeOpcode;
 pub mod instruction;
 
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{BufRead, Write};
 
 // We get a predefined amount of registers allocated
 pub const REGISTER_COUNT: u8 = 13;
@@ -20,17 +20,19 @@ pub struct Interpreter<'a, R: BufRead, W: Write> {
     writer: W,
 }
 
-impl<'a> Interpreter<'a, BufReader<io::Stdin>, io::Stdout> {
+#[cfg(test)]
+impl<'a> Interpreter<'a, std::io::BufReader<std::io::Stdin>, std::io::Stdout> {
     pub fn interpret(
         memory: &'a mut [u8; 256],
         registers: &'a mut [u8; REGISTER_COUNT as usize],
         program_bytes: u8,
     ) -> Result<Self, RuntimeError> {
-        let stdin = BufReader::new(io::stdin());
+        let stdin = std::io::BufReader::new(std::io::stdin());
         let stdout = std::io::stdout();
         Interpreter::interpret_custom_io(memory, registers, program_bytes, stdin, stdout)
     }
 } 
+
 
 impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
     pub fn interpret_custom_io(
@@ -407,7 +409,7 @@ impl<'a, R: BufRead, W: Write> Interpreter<'a, R, W> {
 #[cfg(test)]
 mod tests {
     use instruction::runtime_opcode::RuntimeOpcode;
-    use io::Cursor;
+    use std::io::{self, Cursor, BufReader};
 
     use super::*;
 
