@@ -1080,4 +1080,30 @@ mod tests {
         let mut registers = [0; REGISTER_COUNT as usize];
         Interpreter::interpret(&mut memory, &mut registers, program.len() as u8).unwrap_err();
     }
+
+    #[test]
+    fn test_take_u8_input() {
+        for (input, output) in [
+            ("text\n50000\n-12\n13", 13),
+            ("blah\n)(*&^%$£\n0", 0),
+            ("bruh!\n256\n-1\n255", 255),
+        ] {
+            let inputs = input.as_bytes();
+            let reader = BufReader::new(Cursor::new(inputs));
+
+            let mut interpreter = Interpreter {
+                comparison_result: 0,
+                program_bytes: 0,
+                memory: &mut [0; 256],
+                registers: &mut [0; REGISTER_COUNT as usize],
+                program_counter: 0,
+                underflow: false,
+                reader,
+                writer: io::stdout(),
+            };
+
+            let val = interpreter.take_u8_input();
+            assert_eq!(val, output);
+        }
+    }
 }
