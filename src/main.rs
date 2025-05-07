@@ -131,6 +131,8 @@ mod tests {
     use io::Cursor;
     use std::fmt::Write;
 
+    use crate::tokenizer::UnexpectedCharacter;
+
     use super::*;
 
     #[test]
@@ -253,5 +255,39 @@ mod tests {
                 reason: _
             }
         ));
+    }
+
+    #[test]
+    fn test_display_error() {
+        for (input, expected) in [
+            (
+                Error::FailedToReadFile {
+                    filepath: String::from("path"),
+                    reason: String::from("reason"),
+                },
+                String::from("Failed to read file 'path': reason"),
+            ),
+            (
+                Error::ParserError(ParserError::ProgramTooLarge),
+                ParserError::ProgramTooLarge.to_string(),
+            ),
+            {
+                let tokenizer_error =
+                    TokenizerError::UnexpectedCharacter(Box::new(UnexpectedCharacter {
+                        char: 'a',
+                        line: 0,
+                        col: 0,
+                    }));
+                let result = tokenizer_error.to_string();
+                let expected = Error::TokenizerError(tokenizer_error);
+                (expected, result)
+            },
+            (
+                Error::RuntimeError(RuntimeError::ReadPastMemory),
+                RuntimeError::ReadPastMemory.to_string(),
+            ),
+        ] {
+            assert_eq!(format!("{}", &input), expected)
+        }
     }
 }
